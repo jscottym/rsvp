@@ -12,6 +12,8 @@ import {
 
 let app: FirebaseApp | null = null
 let auth: Auth | null = null
+let globalRecaptchaVerifier: RecaptchaVerifier | null = null
+let globalConfirmationResult: ConfirmationResult | null = null
 
 export function useFirebase() {
   const config = useRuntimeConfig()
@@ -49,19 +51,51 @@ export function useFirebase() {
 export function usePhoneAuth() {
   const { getFirebaseAuth } = useFirebase()
 
-  const recaptchaVerifier = ref<RecaptchaVerifier | null>(null)
-  const confirmationResult = ref<ConfirmationResult | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const setupRecaptcha = (containerId: string) => {
+  const clearRecaptcha = () => {
+    if (globalRecaptchaVerifier) {
+      try {
+        globalRecaptchaVerifier.clear()
+      } catch (e) {
+        // Ignore errors when clearing
+      }
+      globalRecaptchaVerifier = null
+    }
+  }
+
+  const setupRecaptcha = async (containerId: string) => {
     const auth = getFirebaseAuth()
-    recaptchaVerifier.value = new RecaptchaVerifier(auth, containerId, {
+
+    // Always clear existing verifier first
+    clearRecaptcha()
+
+    // Wait a tick for DOM cleanup
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    const container = document.getElementById(containerId)
+    if (!container) {
+      throw new Error(`Container #${containerId} not found`)
+    }
+
+    // Clear any existing reCAPTCHA widgets in the container
+    container.innerHTML = ''
+
+    globalRecaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
       size: 'invisible',
       callback: () => {
         // reCAPTCHA solved
+      },
+      'expired-callback': () => {
+        // Reset reCAPTCHA on expiry
+        console.log('reCAPTCHA expired, resetting...')
+        clearRecaptcha()
       }
     })
+
+    // Pre-render the reCAPTCHA widget
+    await globalRecaptchaVerifier.render()
   }
 
   const sendVerificationCode = async (phoneNumber: string) => {
@@ -70,21 +104,23 @@ export function usePhoneAuth() {
 
     try {
       const auth = getFirebaseAuth()
-      if (!recaptchaVerifier.value) {
+      if (!globalRecaptchaVerifier) {
         throw new Error('Recaptcha not initialized')
       }
 
       // Format phone number with country code if not present
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+1${phoneNumber.replace(/\D/g, '')}`
 
-      confirmationResult.value = await signInWithPhoneNumber(
+      globalConfirmationResult = await signInWithPhoneNumber(
         auth,
         formattedPhone,
-        recaptchaVerifier.value
+        globalRecaptchaVerifier
       )
 
       return true
     } catch (e: any) {
+      // Reset reCAPTCHA on error so user can try again
+      clearRecaptcha()
       error.value = e.message || 'Failed to send verification code'
       console.error('Phone auth error:', e)
       return false
@@ -98,11 +134,11 @@ export function usePhoneAuth() {
     error.value = null
 
     try {
-      if (!confirmationResult.value) {
+      if (!globalConfirmationResult) {
         throw new Error('No confirmation result')
       }
 
-      const result = await confirmationResult.value.confirm(code)
+      const result = await globalConfirmationResult.confirm(code)
       return result.user
     } catch (e: any) {
       error.value = e.message || 'Invalid verification code'
@@ -134,9 +170,13 @@ export function usePhoneAuth() {
     return user.getIdToken()
   }
 
+  const resetState = () => {
+    clearRecaptcha()
+    globalConfirmationResult = null
+    error.value = null
+  }
+
   return {
-    recaptchaVerifier,
-    confirmationResult,
     loading,
     error,
     setupRecaptcha,
@@ -144,6 +184,7 @@ export function usePhoneAuth() {
     verifyCode,
     signOut,
     getCurrentUser,
-    getIdToken
+    getIdToken,
+    resetState
   }
 }

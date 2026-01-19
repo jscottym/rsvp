@@ -4,15 +4,17 @@
       <div class="space-y-6">
         <!-- Step 1: Phone Number -->
         <div v-if="step === 'phone'">
+          <div id="recaptcha-container"></div>
           <UFormField label="Phone Number">
-            <UInput
-              v-model="phone"
-              type="tel"
-              placeholder="(555) 123-4567"
-              size="lg"
-              :disabled="loading"
-              @keyup.enter="sendCode"
-            />
+          <UInput
+            v-model="phone"
+            type="tel"
+            placeholder="(555) 123-4567"
+            size="lg"
+            :disabled="loading"
+            @input="handlePhoneInput"
+            @keyup.enter="sendCode"
+          />
           </UFormField>
           <p class="mt-2 text-sm text-gray-500">
             We'll send a verification code via SMS
@@ -25,11 +27,12 @@
             Enter the 6-digit code sent to {{ formatPhone(phone) }}
           </p>
           <UPinInput
-            v-model="code"
+            :model-value="code"
             :length="6"
             size="lg"
             otp
             :disabled="loading"
+            @update:model-value="(val: any) => code = Array.isArray(val) ? val.join('') : val"
             @complete="verifyCode"
           />
           <UButton
@@ -81,9 +84,9 @@
         <UButton
           v-if="step === 'phone'"
           color="primary"
-          label="Send Code"
+          :label="recaptchaReady ? 'Send Code' : 'Initializing...'"
           :loading="loading"
-          :disabled="!isValidPhone"
+          :disabled="!isValidPhone || !recaptchaReady"
           @click="sendCode"
         />
         <UButton
@@ -108,6 +111,8 @@
 </template>
 
 <script setup lang="ts">
+import { useLocalStorage } from '@vueuse/core'
+
 const props = defineProps<{
   open: boolean
   redirectTo?: string
@@ -124,20 +129,41 @@ const isOpen = computed({
 })
 
 const authStore = useAuthStore()
-const { setupRecaptcha, sendVerificationCode, verifyCode: verifyOtp, loading, error: phoneAuthError } = usePhoneAuth()
+const { setupRecaptcha, sendVerificationCode, verifyCode: verifyOtp, loading, error: phoneAuthError, resetState } = usePhoneAuth()
 const toast = useToast()
 const router = useRouter()
+const recaptchaReady = ref(false)
 
 const step = ref<'phone' | 'code' | 'name'>('phone')
-const phone = ref('')
+const phoneStorage = useLocalStorage('pickup-sports-last-phone', '')
+const phone = ref(phoneStorage.value)
 const code = ref('')
 const name = ref('')
 const error = ref<string | null>(null)
 const firebaseUser = ref<any>(null)
 
+function formatPhoneInput(input: string): string {
+  const digits = input.replace(/\D/g, '')
+  
+  if (digits.length === 0) return ''
+  if (digits.length <= 3) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
+}
+
+function handlePhoneInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const formatted = formatPhoneInput(target.value)
+  phone.value = formatted
+}
+
+watch(phone, (value) => {
+  phoneStorage.value = value
+})
+
 const isValidPhone = computed(() => {
   const digits = phone.value.replace(/\D/g, '')
-  return digits.length >= 10
+  return digits.length === 10
 })
 
 const formatPhone = (p: string) => {
@@ -152,15 +178,27 @@ watch(phoneAuthError, (val) => {
   if (val) error.value = val
 })
 
-watch(isOpen, (val) => {
+async function initRecaptcha() {
+  recaptchaReady.value = false
+  error.value = null
+  await nextTick()
+  try {
+    await setupRecaptcha('recaptcha-container')
+    recaptchaReady.value = true
+  } catch (e: any) {
+    console.error('Failed to setup reCAPTCHA:', e)
+    error.value = 'Failed to initialize verification. Please refresh and try again.'
+  }
+}
+
+watch(isOpen, async (val) => {
   if (val) {
-    nextTick(() => {
-      setupRecaptcha('recaptcha-container')
-    })
+    await initRecaptcha()
   } else {
-    // Reset state when closed
+    // Reset state when closed (but keep phone number)
+    resetState()
+    recaptchaReady.value = false
     step.value = 'phone'
-    phone.value = ''
     code.value = ''
     name.value = ''
     error.value = null
@@ -169,9 +207,26 @@ watch(isOpen, (val) => {
 
 async function sendCode() {
   error.value = null
+  const digits = phone.value.replace(/\D/g, '')
+  if (digits.length !== 10) {
+    error.value = 'Please enter a valid 10-digit phone number'
+    return
+  }
+
+  // Make sure reCAPTCHA is ready
+  if (!recaptchaReady.value) {
+    await initRecaptcha()
+    if (!recaptchaReady.value) {
+      return // Error already set by initRecaptcha
+    }
+  }
+
   const success = await sendVerificationCode(phone.value)
   if (success) {
     step.value = 'code'
+  } else {
+    // Re-initialize reCAPTCHA for retry
+    await initRecaptcha()
   }
 }
 

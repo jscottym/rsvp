@@ -125,7 +125,7 @@
     </template>
 
     <!-- Auth Modal -->
-    <PhoneAuthModal
+    <AuthModal
       v-model:open="showAuthModal"
       @authenticated="submitPendingRsvp"
     />

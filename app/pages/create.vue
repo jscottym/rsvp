@@ -1,12 +1,12 @@
 <template>
-  <div class="max-w-lg mx-auto px-4 py-6 pb-32">
+  <div class="max-w-lg mx-auto px-4 py-6 pb-24">
       <!-- Location -->
       <section class="mb-6">
         <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Where</label>
         <div class="relative">
           <UInput
-            v-model="form.location"
-            placeholder="Picklr Lehi - Court 11"
+            v-model="location"
+            placeholder="Picklr Lehi"
             size="xl"
             icon="i-heroicons-map-pin"
             class="w-full"
@@ -113,13 +113,6 @@
         </div>
       </section>
 
-      <!-- Time Range Display -->
-      <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-        <p class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ timeRangeDisplay }}
-        </p>
-      </div>
-
       <!-- Player Count -->
       <section class="mb-8">
         <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Players</label>
@@ -145,62 +138,6 @@
         </div>
       </section>
 
-
-      <!-- Expanded Options -->
-      <div
-        v-if="showMoreOptions"
-        class="space-y-6 pt-4 border-t border-gray-200 dark:border-gray-800 mt-2"
-      >
-        <!-- Custom Start/End Times -->
-        <section>
-          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Custom Times</label>
-          <div class="flex gap-3 items-center">
-            <div class="flex-1">
-              <label class="text-xs text-gray-500 mb-1 block">Start</label>
-              <UInput
-                v-model="form.startTime"
-                type="time"
-                size="lg"
-                class="w-full"
-                :ui="{ base: 'rounded-xl' }"
-              />
-            </div>
-            <span class="text-gray-400 mt-5">→</span>
-            <div class="flex-1">
-              <label class="text-xs text-gray-500 mb-1 block">End</label>
-              <UInput
-                v-model="customEndTime"
-                type="time"
-                size="lg"
-                class="w-full"
-                :ui="{ base: 'rounded-xl' }"
-                @update:model-value="handleCustomEndTime"
-              />
-            </div>
-          </div>
-        </section>
-
-        <!-- Description -->
-        <section>
-          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Note (optional)</label>
-          <UTextarea
-            v-model="form.description"
-            placeholder="Skill level, what to bring, etc."
-            :rows="2"
-            :ui="{ base: 'rounded-xl' }"
-          />
-        </section>
-
-        <!-- Sharing Settings -->
-        <section class="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-          <div>
-            <p class="font-medium text-gray-900 dark:text-white text-sm">Allow sharing</p>
-            <p class="text-xs text-gray-500">Players can share the link</p>
-          </div>
-          <USwitch v-model="form.allowSharing" color="emerald" />
-        </section>
-      </div>
-
     <!-- Floating CTA -->
     <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-50 via-gray-50 dark:from-gray-950 dark:via-gray-950 to-transparent pt-8 z-40">
       <div class="max-w-lg mx-auto">
@@ -209,12 +146,11 @@
           block
           :loading="submitting"
           :disabled="!isValid"
-          class="h-14 text-lg font-semibold rounded-2xl shadow-xl shadow-emerald-500/30 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 active:scale-[0.98]"
+          class="h-20 flex flex-col items-center justify-center gap-1 text-xl font-bold rounded-2xl shadow-xl shadow-emerald-500/30 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 active:scale-[0.98]"
           @click="handleSubmit"
         >
-          <span class="flex items-center gap-2">
-            <span>Create Game</span>
-          </span>
+          <span>Create {{ form.maxPlayers }}-player Game</span>
+          <span v-if="isValid" class="text-sm font-normal opacity-90">{{ eventDetailsSummary }}</span>
         </UButton>
         <p class="text-center text-xs text-gray-500 mt-2">
           You'll get a link to share with players
@@ -223,7 +159,7 @@
     </div>
 
     <!-- Auth Modal -->
-    <PhoneAuthModal
+    <AuthModal
       v-model:open="showAuthModal"
       @authenticated="submitAfterAuth"
     />
@@ -231,13 +167,14 @@
 </template>
 
 <script setup lang="ts">
+import { useLocalStorage } from '@vueuse/core'
+
 const authStore = useAuthStore()
 const eventsStore = useEventsStore()
 const router = useRouter()
 const toast = useToast()
 
 const showAuthModal = ref(false)
-const showMoreOptions = ref(false)
 const submitting = ref(false)
 
 // Player count options
@@ -247,12 +184,12 @@ const playerCounts = [
   { value: 12, label: 'party' }
 ]
 
-// Generate next 7 days
+// Generate next 15 days
 const nextDays = computed(() => {
   const days = []
   const today = new Date()
 
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 15; i++) {
     const date = new Date(today)
     date.setDate(today.getDate() + i)
 
@@ -269,7 +206,7 @@ const nextDays = computed(() => {
 
 // Duration options
 const durationOptions = [
-  { value: 90, label: '90m' },
+  { value: 90, label: '1.5 hrs' },
   { value: 120, label: '2 hrs' },
   { value: 150, label: '2.5 hrs' },
   { value: 180, label: '3 hrs' }
@@ -303,12 +240,13 @@ const startTimeSlots = computed(() => {
   return slots
 })
 
+const location = useLocalStorage('pickup-sports-last-location', '')
+
 // Form with smart defaults for pickleball
 const form = reactive({
   date: nextDays.value[0]?.value || '',
-  startTime: '09:00',
+  startTime: '06:00',
   duration: 120, // 2 hours default
-  location: '',
   maxPlayers: 4,
   description: '',
   allowSharing: true
@@ -323,12 +261,6 @@ const endTime = computed(() => {
   return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
 })
 
-// Custom end time for the input (synced with endTime)
-const customEndTime = computed({
-  get: () => endTime.value,
-  set: () => {} // Handled by handleCustomEndTime
-})
-
 // Format time for display (e.g., "9 AM" or "9:30 AM")
 function formatTimeDisplay(time: string): string {
   const [h, m] = time.split(':').map(Number)
@@ -337,34 +269,69 @@ function formatTimeDisplay(time: string): string {
   return m === 0 ? `${hour12} ${suffix}` : `${hour12}:${m.toString().padStart(2, '0')} ${suffix}`
 }
 
-// Time range display
-const timeRangeDisplay = computed(() => {
-  return `${formatTimeDisplay(form.startTime)} → ${formatTimeDisplay(endTime.value)}`
+// Format time range for summary (e.g., "8-10am" or "11am-12:30pm")
+function formatTimeRangeSummary(start: string, end: string): string {
+  const [startH, startM] = start.split(':').map(Number)
+  const [endH, endM] = end.split(':').map(Number)
+
+  const startHour12 = startH === 0 ? 12 : startH > 12 ? startH - 12 : startH
+  const endHour12 = endH === 0 ? 12 : endH > 12 ? endH - 12 : endH
+  const startSuffix = startH >= 12 ? 'pm' : 'am'
+  const endSuffix = endH >= 12 ? 'pm' : 'am'
+
+  if (startSuffix === endSuffix) {
+    const startStr = startM === 0 ? `${startHour12}` : `${startHour12}:${startM.toString().padStart(2, '0')}`
+    const endStr = endM === 0 ? `${endHour12}${endSuffix}` : `${endHour12}:${endM.toString().padStart(2, '0')}${endSuffix}`
+    return `${startStr}-${endStr}`
+  } else {
+    const startStr = startM === 0 ? `${startHour12}${startSuffix}` : `${startHour12}:${startM.toString().padStart(2, '0')}${startSuffix}`
+    const endStr = endM === 0 ? `${endHour12}${endSuffix}` : `${endHour12}:${endM.toString().padStart(2, '0')}${endSuffix}`
+    return `${startStr}-${endStr}`
+  }
+}
+
+// Abbreviate location
+function abbreviateLocation(loc: string): string {
+  return loc
+    .replace(/\s*-\s*/g, ' ')
+    .replace(/\bCourt\b/gi, 'C')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Event details summary for button
+const eventDetailsSummary = computed(() => {
+  if (!isValid.value) return ''
+
+  const locationStr = abbreviateLocation(location.value)
+  const dateStr = formatDateDisplay(form.date)
+  const timeStr = formatTimeRangeSummary(form.startTime, endTime.value)
+
+  return `${locationStr} • ${dateStr} ${timeStr}`
 })
 
-// Handle custom end time input - calculate new duration
-function handleCustomEndTime(newEndTime: string) {
-  const [startH, startM] = form.startTime.split(':').map(Number)
-  const [endH, endM] = newEndTime.split(':').map(Number)
+// Format date for display (abbreviated)
+function formatDateDisplay(dateString: string): string {
+  const date = new Date(dateString)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
 
-  let startMinutes = startH * 60 + startM
-  let endMinutes = endH * 60 + endM
+  const dateToCheck = new Date(date)
+  dateToCheck.setHours(0, 0, 0, 0)
 
-  // Handle overnight (e.g., 11 PM to 1 AM)
-  if (endMinutes <= startMinutes) {
-    endMinutes += 24 * 60
-  }
-
-  const newDuration = endMinutes - startMinutes
-
-  // Only update if duration is at least 30 minutes and at most 6 hours
-  if (newDuration >= 30 && newDuration <= 360) {
-    form.duration = newDuration
+  if (dateToCheck.getTime() === today.getTime()) {
+    return 'Today'
+  } else if (dateToCheck.getTime() === tomorrow.getTime()) {
+    return 'Tmrw'
+  } else {
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   }
 }
 
 const isValid = computed(() => {
-  return form.date && form.startTime && form.location.trim()
+  return !!(form.date && form.startTime && location.value.trim())
 })
 
 async function handleSubmit() {
@@ -393,7 +360,7 @@ async function createEvent() {
       title: '🏸 Pickleball Game',
       sportType: 'pickleball',
       description: form.description.trim() || undefined,
-      location: form.location.trim(),
+      location: location.value.trim(),
       datetime,
       endDatetime,
       minPlayers: Math.min(2, form.maxPlayers),
@@ -402,7 +369,7 @@ async function createEvent() {
     })
 
     toast.add({
-      title: 'Game On! 🎉',
+      title: 'Game On!',
       description: 'Share the link to get players',
       color: 'success'
     })

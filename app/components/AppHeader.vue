@@ -27,7 +27,7 @@
       </div>
     </div>
 
-    <PhoneAuthModal v-model:open="showAuthModal" />
+    <AuthModal v-model:open="showAuthModal" />
   </header>
 </template>
 
