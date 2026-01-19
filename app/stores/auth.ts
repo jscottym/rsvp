@@ -1,0 +1,105 @@
+import { defineStore } from 'pinia'
+
+interface User {
+  id: string
+  name: string
+  phone: string
+}
+
+interface AuthState {
+  user: User | null
+  loading: boolean
+  initialized: boolean
+}
+
+export const useAuthStore = defineStore('auth', {
+  state: (): AuthState => ({
+    user: null,
+    loading: false,
+    initialized: false
+  }),
+
+  getters: {
+    isAuthenticated: (state) => !!state.user,
+    currentUser: (state) => state.user
+  },
+
+  actions: {
+    async initialize() {
+      if (this.initialized) return
+
+      const { getCurrentUser, getIdToken } = usePhoneAuth()
+      this.loading = true
+
+      try {
+        const firebaseUser = await getCurrentUser()
+
+        if (firebaseUser) {
+          const token = await firebaseUser.getIdToken()
+          await this.fetchUser(token)
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error)
+      } finally {
+        this.loading = false
+        this.initialized = true
+      }
+    },
+
+    async login(idToken: string, name?: string) {
+      this.loading = true
+
+      try {
+        const response = await $fetch<{ user: User }>('/api/auth/firebase-login', {
+          method: 'POST',
+          body: { idToken, name }
+        })
+
+        this.user = response.user
+        return { success: true }
+      } catch (error: any) {
+        console.error('Login error:', error)
+        return {
+          success: false,
+          error: error.data?.message || 'Login failed',
+          needsName: error.data?.message === 'Name is required for new users'
+        }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async fetchUser(token: string) {
+      try {
+        const response = await $fetch<{ user: User }>('/api/auth/me', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+
+        this.user = response.user
+      } catch (error) {
+        // User not found in DB, they'll need to complete registration
+        this.user = null
+      }
+    },
+
+    async logout() {
+      const { signOut } = usePhoneAuth()
+
+      try {
+        await signOut()
+        await $fetch('/api/auth/logout', { method: 'POST' })
+      } catch (error) {
+        console.error('Logout error:', error)
+      } finally {
+        this.user = null
+      }
+    },
+
+    async getIdToken(): Promise<string | null> {
+      const { getIdToken } = usePhoneAuth()
+      return getIdToken()
+    }
+  }
+})

@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  firebaseUid String   @unique
+  phone       String   @unique
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  organizedEvents Event[]            @relation("EventOrganizer")
+  rsvps           Rsvp[]
+  ownedGroups     Group[]            @relation("GroupOwner")
+  groupMemberships GroupMember[]
+  joinRequests    GroupJoinRequest[]
+
+  @@index([firebaseUid])
+  @@index([phone])
+}
+
+model Event {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  sportType     String
+  description   String?
+  location      String
+  datetime      DateTime
+  endDatetime   DateTime
+  minPlayers    Int      @default(2)
+  maxPlayers    Int
+  allowSharing  Boolean  @default(true)
+  sharingNote   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  organizerId String
+  organizer   User   @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  rsvps       Rsvp[]
+
+  @@index([slug])
+  @@index([organizerId])
+  @@index([datetime])
+}
+
+model Rsvp {
+  id        String     @id @default(cuid())
+  status    RsvpStatus
+  guestName String?
+  guestPhone String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId  String?
+  user    User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, userId])
+  @@unique([eventId, guestPhone])
+  @@index([eventId])
+  @@index([userId])
+}
+
+enum RsvpStatus {
+  IN
+  OUT
+}
+
+model Group {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  visibility  GroupVisibility @default(PRIVATE)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  ownerId      String
+  owner        User               @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members      GroupMember[]
+  joinRequests GroupJoinRequest[]
+
+  @@index([ownerId])
+  @@index([visibility])
+}
+
+enum GroupVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String?
+  user    User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([groupId, phone])
+  @@index([groupId])
+}
+
+model GroupJoinRequest {
+  id        String            @id @default(cuid())
+  status    JoinRequestStatus @default(PENDING)
+  message   String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  // Relations
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@index([status])
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

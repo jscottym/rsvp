@@ -1,0 +1,39 @@
+import prisma from '../../utils/db'
+
+export default defineEventHandler(async (event) => {
+  const auth = event.context.auth
+
+  if (!auth?.user) {
+    throw createError({
+      statusCode: 401,
+      message: 'Not authenticated'
+    })
+  }
+
+  const groups = await prisma.group.findMany({
+    where: {
+      ownerId: auth.user.id
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
+    include: {
+      _count: {
+        select: {
+          members: true
+        }
+      }
+    }
+  })
+
+  return {
+    groups: groups.map(g => ({
+      id: g.id,
+      name: g.name,
+      description: g.description,
+      visibility: g.visibility,
+      memberCount: g._count.members,
+      createdAt: g.createdAt
+    }))
+  }
+})

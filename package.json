@@ -1,0 +1,33 @@
+{
+  "name": "pickup-sports",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare && prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^4.3.0",
+    "@pinia/nuxt": "^0.11.0",
+    "@prisma/client": "^6.0.0",
+    "firebase": "^11.0.0",
+    "firebase-admin": "^13.0.0",
+    "nanoid": "^5.0.0",
+    "nuxt": "^4.2.2",
+    "pinia": "^3.0.0",
+    "tailwindcss": "^4.1.18",
+    "vue": "^3.5.26",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.0.0",
+    "prisma": "^6.0.0",
+    "typescript": "^5.7.0"
+  }
+}
