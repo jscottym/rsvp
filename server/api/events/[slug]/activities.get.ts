@@ -44,6 +44,7 @@ export default defineEventHandler(async (event) => {
       id: activity.id,
       type: activity.type,
       message: activity.message,
+      comment: activity.comment,
       createdAt: activity.createdAt.toISOString(),
       user: activity.user ? {
         id: activity.user.id,

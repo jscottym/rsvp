@@ -20,8 +20,30 @@ interface RsvpUpdatePayload {
     id: string
     type: string
     message: string
+    comment: string | null
     createdAt: string
   }
+}
+
+interface EventUpdatePayload {
+  type: 'event_update'
+  eventSlug: string
+  event: {
+    location: string
+    datetime: string
+    endDatetime: string
+    minPlayers: number
+    maxPlayers: number
+    description: string | null
+    allowSharing: boolean
+  }
+  activity: {
+    id: string
+    type: string
+    message: string
+    comment: string | null
+    createdAt: string
+  } | null
 }
 
 interface SubscribedPayload {
@@ -39,17 +61,19 @@ interface ErrorPayload {
   message: string
 }
 
-type ServerMessage = RsvpUpdatePayload | SubscribedPayload | PongPayload | ErrorPayload
+type ServerMessage = RsvpUpdatePayload | EventUpdatePayload | SubscribedPayload | PongPayload | ErrorPayload
 
 export interface EventActivity {
   id: string
   type: string
   message: string
+  comment: string | null
   createdAt: string
 }
 
 export interface UseEventWebSocketOptions {
   onRsvpUpdate?: (payload: RsvpUpdatePayload) => void
+  onEventUpdate?: (payload: EventUpdatePayload) => void
   onActivity?: (activity: EventActivity) => void
   onConnected?: () => void
   onDisconnected?: () => void
@@ -124,6 +148,14 @@ export function useEventWebSocket(eventSlug: Ref<string> | string, options: UseE
               console.log('[WebSocket] RSVP update received:', data)
               options.onRsvpUpdate?.(data)
               options.onActivity?.(data.activity)
+              break
+
+            case 'event_update':
+              console.log('[WebSocket] Event update received:', data)
+              options.onEventUpdate?.(data)
+              if (data.activity) {
+                options.onActivity?.(data.activity)
+              }
               break
 
             case 'pong':

@@ -9,7 +9,7 @@ const userMenuItems = computed(() => [
   [{
     label: 'My Events',
     icon: 'i-heroicons-calendar-days',
-    to: '/my-events'
+    to: '/'
   }],
   [{
     label: 'My Groups',
@@ -44,7 +44,7 @@ const mobileMenuItems = computed<NavigationMenuItem[][]>(() => {
       {
         label: 'My Events',
         icon: 'i-heroicons-calendar-days',
-        to: '/my-events'
+        to: '/'
       },
       {
         label: 'My Groups',

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import prisma from '../../../utils/db'
+import { broadcastToEvent, type EventUpdatePayload } from '../../../utils/broadcast'
 
 const updateEventSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -85,6 +86,33 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Build the changes summary for activity log
+  const changes: string[] = []
+
+  if (data.location && data.location !== existingEvent.location) {
+    changes.push(`location to ${data.location}`)
+  }
+  if (data.datetime) {
+    const newDate = new Date(data.datetime)
+    const oldDate = existingEvent.datetime
+    if (newDate.getTime() !== oldDate.getTime()) {
+      const timeStr = newDate.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      })
+      changes.push(`time to ${timeStr}`)
+    }
+  }
+  if (data.maxPlayers !== undefined && data.maxPlayers !== existingEvent.maxPlayers) {
+    changes.push(`max players to ${data.maxPlayers}`)
+  }
+  if (data.title && data.title !== existingEvent.title) {
+    changes.push(`title to "${data.title}"`)
+  }
+
   const updated = await prisma.event.update({
     where: { slug },
     data: {
@@ -99,6 +127,47 @@ export default defineEventHandler(async (event) => {
       ...(data.sharingNote !== undefined && { sharingNote: data.sharingNote })
     }
   })
+
+  // Create activity record if there were meaningful changes
+  let activity = null
+  if (changes.length > 0) {
+    const userName = auth.user.nickname || auth.user.name
+    const activityMessage = `${userName} changed ${changes.join(', ')}`
+
+    activity = await prisma.eventActivity.create({
+      data: {
+        eventId: existingEvent.id,
+        userId: auth.user.id,
+        type: 'EVENT_EDITED',
+        message: activityMessage,
+        comment: null
+      }
+    })
+  }
+
+  // Always broadcast the updated event to all connected clients
+  const payload: EventUpdatePayload = {
+    type: 'event_update',
+    eventSlug: slug,
+    event: {
+      location: updated.location,
+      datetime: updated.datetime.toISOString(),
+      endDatetime: updated.endDatetime.toISOString(),
+      minPlayers: updated.minPlayers,
+      maxPlayers: updated.maxPlayers,
+      description: updated.description,
+      allowSharing: updated.allowSharing
+    },
+    activity: activity ? {
+      id: activity.id,
+      type: activity.type,
+      message: activity.message,
+      comment: activity.comment,
+      createdAt: activity.createdAt.toISOString()
+    } : null as any
+  }
+
+  broadcastToEvent(slug, payload)
 
   return {
     event: {

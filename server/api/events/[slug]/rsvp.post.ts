@@ -19,15 +19,15 @@ function getActivityType(status: RsvpStatus): EventActivityType {
   return map[status]
 }
 
-function getActivityMessage(name: string, status: RsvpStatus): string {
-  const messages: Record<RsvpStatus, string> = {
+function getActivityMessage(name: string, status: RsvpStatus, comment?: string): string {
+  const baseMessages: Record<RsvpStatus, string> = {
     IN: `${name} is in`,
     OUT: `${name} dropped out`,
     MAYBE: `${name} might come`,
     IN_IF: `${name} is in if...`,
     WAITLIST: `${name} joined the waitlist`
   }
-  return messages[status]
+  return baseMessages[status]
 }
 
 export default defineEventHandler(async (event) => {
@@ -132,7 +132,8 @@ export default defineEventHandler(async (event) => {
         eventId: existingEvent.id,
         userId: auth.user.id,
         type: activityType,
-        message: activityMessage
+        message: activityMessage,
+        comment: comment || null
       }
     })
   ])
@@ -172,6 +173,7 @@ export default defineEventHandler(async (event) => {
       id: activity.id,
       type: activity.type,
       message: activity.message,
+      comment: activity.comment,
       createdAt: activity.createdAt.toISOString()
     }
   }

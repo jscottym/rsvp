@@ -46,11 +46,32 @@ interface RsvpDetail {
   createdAt: string
 }
 
+interface DashboardEvent {
+  id: string
+  slug: string
+  title: string
+  sportType: string
+  location: string
+  datetime: string
+  endDatetime: string | null
+  maxPlayers: number
+  rsvpCount: number
+  isOrganizer: boolean
+  userRsvpStatus: RsvpStatus | null
+  organizer: {
+    id: string
+    name: string | null
+  }
+}
+
 interface EventsState {
   events: Event[]
   currentEvent: Event | null
   rsvps: RsvpDetail[]
   loading: boolean
+  dashboardUpcoming: DashboardEvent[]
+  dashboardPast: DashboardEvent[]
+  dashboardLoading: boolean
 }
 
 export const useEventsStore = defineStore('events', {
@@ -58,7 +79,10 @@ export const useEventsStore = defineStore('events', {
     events: [],
     currentEvent: null,
     rsvps: [],
-    loading: false
+    loading: false,
+    dashboardUpcoming: [],
+    dashboardPast: [],
+    dashboardLoading: false
   }),
 
   getters: {
@@ -93,6 +117,25 @@ export const useEventsStore = defineStore('events', {
         console.error('Failed to fetch events:', error)
       } finally {
         this.loading = false
+      }
+    },
+
+    async fetchDashboardEvents() {
+      const authStore = useAuthStore()
+      this.dashboardLoading = true
+
+      try {
+        const token = await authStore.getIdToken()
+        const response = await $fetch<{ upcoming: DashboardEvent[]; past: DashboardEvent[] }>('/api/events/dashboard', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+
+        this.dashboardUpcoming = response.upcoming
+        this.dashboardPast = response.past
+      } catch (error) {
+        console.error('Failed to fetch dashboard events:', error)
+      } finally {
+        this.dashboardLoading = false
       }
     },
 
@@ -297,6 +340,38 @@ export const useEventsStore = defineStore('events', {
       } catch (error) {
         console.error('Failed to get drop out message data:', error)
         throw error
+      }
+    },
+
+    /**
+     * Apply a real-time event update from WebSocket
+     */
+    applyEventUpdate(payload: {
+      eventSlug: string
+      event: {
+        location: string
+        datetime: string
+        endDatetime: string
+        minPlayers: number
+        maxPlayers: number
+        description: string | null
+        allowSharing: boolean
+      }
+    }) {
+      if (!this.currentEvent || this.currentEvent.slug !== payload.eventSlug) {
+        return
+      }
+
+      // Update the current event with new data
+      this.currentEvent = {
+        ...this.currentEvent,
+        location: payload.event.location,
+        datetime: payload.event.datetime,
+        endDatetime: payload.event.endDatetime,
+        minPlayers: payload.event.minPlayers,
+        maxPlayers: payload.event.maxPlayers,
+        description: payload.event.description || undefined,
+        allowSharing: payload.event.allowSharing
       }
     },
 

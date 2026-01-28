@@ -18,11 +18,33 @@ export interface RsvpUpdatePayload {
     id: string
     type: string
     message: string
+    comment: string | null
     createdAt: string
   }
 }
 
-export type WebSocketPayload = RsvpUpdatePayload
+export interface EventUpdatePayload {
+  type: 'event_update'
+  eventSlug: string
+  event: {
+    location: string
+    datetime: string
+    endDatetime: string
+    minPlayers: number
+    maxPlayers: number
+    description: string | null
+    allowSharing: boolean
+  }
+  activity: {
+    id: string
+    type: string
+    message: string
+    comment: string | null
+    createdAt: string
+  } | null
+}
+
+export type WebSocketPayload = RsvpUpdatePayload | EventUpdatePayload
 
 // Store for active WebSocket peers by event channel
 const eventPeers = new Map<string, Set<Peer>>()

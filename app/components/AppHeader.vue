@@ -19,7 +19,7 @@ const userMenuItems = computed(() => [
   [{
     label: 'My Events',
     icon: 'i-heroicons-calendar-days',
-    to: '/my-events'
+    to: '/'
   }],
   [{
     label: 'My Groups',

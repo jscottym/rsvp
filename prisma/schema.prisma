@@ -90,12 +90,14 @@ enum EventActivityType {
   RSVP_MAYBE
   RSVP_WAITLIST
   RSVP_IN_IF
+  EVENT_EDITED
 }
 
 model EventActivity {
   id        String            @id @default(cuid())
   type      EventActivityType
   message   String
+  comment   String?
   createdAt DateTime          @default(now())
 
   eventId   String
