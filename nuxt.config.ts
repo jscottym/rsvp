@@ -2,16 +2,14 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  ssr: false,
 
-  modules: [
-    '@nuxt/ui',
-    '@pinia/nuxt'
-  ],
+  modules: ['@nuxt/ui', '@pinia/nuxt'],
 
   nitro: {
     experimental: {
-      websocket: true
-    }
+      websocket: true,
+    },
   },
 
   css: ['~/assets/css/main.css'],
@@ -27,17 +25,23 @@ export default defineNuxtConfig({
       firebaseApiKey: process.env.NUXT_PUBLIC_FIREBASE_API_KEY,
       firebaseAuthDomain: process.env.NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
       firebaseProjectId: process.env.NUXT_PUBLIC_FIREBASE_PROJECT_ID,
-      firebaseAppId: process.env.NUXT_PUBLIC_FIREBASE_APP_ID
-    }
+      firebaseAppId: process.env.NUXT_PUBLIC_FIREBASE_APP_ID,
+    },
   },
 
   app: {
     head: {
       title: 'RSVP',
       meta: [
-        { name: 'description', content: 'Create events and RSVP to events others created' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1' }
-      ]
-    }
-  }
-})
+        {
+          name: 'description',
+          content: 'Create events and RSVP to events others created',
+        },
+        {
+          name: 'viewport',
+          content: 'width=device-width, initial-scale=1, maximum-scale=1',
+        },
+      ],
+    },
+  },
+});

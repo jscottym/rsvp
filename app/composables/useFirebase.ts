@@ -67,6 +67,10 @@ export function usePhoneAuth() {
       }
       globalRecaptchaVerifier = null
     }
+
+    // Also clean up any orphaned reCAPTCHA iframes/widgets that Firebase may have left
+    document.querySelectorAll('iframe[src*="recaptcha"]').forEach(el => el.remove())
+    document.querySelectorAll('.grecaptcha-badge').forEach(el => el.remove())
   }
 
   const setupRecaptcha = async (containerId: string) => {
@@ -75,8 +79,8 @@ export function usePhoneAuth() {
     // Always clear existing verifier first
     clearRecaptcha()
 
-    // Wait a tick for DOM cleanup
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Wait for DOM cleanup - Firebase reCAPTCHA needs time to fully teardown
+    await new Promise(resolve => setTimeout(resolve, 300))
 
     const container = document.getElementById(containerId)
     if (!container) {

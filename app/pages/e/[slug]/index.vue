@@ -1961,6 +1961,7 @@ async function deleteEvent() {
               v-model="newGroupName"
               placeholder="e.g., Sunday Hoopers"
               size="lg"
+              autofocus
             />
           </UFormField>
           <p class="text-sm text-gray-500">
