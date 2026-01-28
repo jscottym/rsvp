@@ -4,10 +4,12 @@ type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST'
 
 interface EventRsvp {
   id: string
+  userId: string | null
   status: RsvpStatus
   comment: string | null
   name: string
   isUser: boolean
+  updatedAt: string
 }
 
 interface Event {
@@ -295,6 +297,70 @@ export const useEventsStore = defineStore('events', {
       } catch (error) {
         console.error('Failed to get drop out message data:', error)
         throw error
+      }
+    },
+
+    /**
+     * Apply a real-time RSVP update from WebSocket
+     */
+    applyRsvpUpdate(payload: {
+      eventSlug: string
+      rsvp: {
+        id: string
+        userId: string | null
+        status: RsvpStatus
+        comment: string | null
+        name: string
+      }
+      counts: {
+        rsvpCount: number
+        waitlistCount: number
+      }
+    }) {
+      if (!this.currentEvent || this.currentEvent.slug !== payload.eventSlug) {
+        return
+      }
+
+      // Update counts
+      this.currentEvent.rsvpCount = payload.counts.rsvpCount
+      this.currentEvent.waitlistCount = payload.counts.waitlistCount
+
+      // Update or add RSVP in the list
+      if (this.currentEvent.rsvps) {
+        const existingIndex = this.currentEvent.rsvps.findIndex(
+          r => r.id === payload.rsvp.id || r.userId === payload.rsvp.userId
+        )
+
+        const updatedRsvp: EventRsvp = {
+          id: payload.rsvp.id,
+          userId: payload.rsvp.userId,
+          status: payload.rsvp.status,
+          comment: payload.rsvp.comment,
+          name: payload.rsvp.name,
+          isUser: false, // Will be corrected by the view
+          updatedAt: new Date().toISOString()
+        }
+
+        if (existingIndex !== -1) {
+          // Update existing RSVP
+          this.currentEvent.rsvps[existingIndex] = {
+            ...this.currentEvent.rsvps[existingIndex],
+            ...updatedRsvp
+          }
+        } else {
+          // Add new RSVP
+          this.currentEvent.rsvps.push(updatedRsvp)
+        }
+      }
+
+      // Update userRsvp if this is the current user's RSVP
+      const authStore = useAuthStore()
+      if (authStore.user?.id === payload.rsvp.userId) {
+        this.currentEvent.userRsvp = {
+          status: payload.rsvp.status,
+          comment: payload.rsvp.comment,
+          updatedAt: new Date().toISOString()
+        }
       }
     }
   }

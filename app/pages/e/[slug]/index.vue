@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { EventActivity } from '~/composables/useEventWebSocket'
+
 type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST'
 
 const route = useRoute()
@@ -14,11 +16,15 @@ const comment = ref('')
 const selectedStatus = ref<RsvpStatus | null>(null)
 const showDropOutModal = ref(false)
 const droppingOut = ref(false)
-const showSavedIndicator = ref(false)
-const savedAnimationKey = ref(0)
 const activeResponseTab = ref('in')
 const isEditingNote = ref(false)
 const noteInputRef = ref<HTMLInputElement | null>(null)
+const showUndoButton = ref(false)
+const undoTimeoutId = ref<ReturnType<typeof setTimeout> | null>(null)
+
+// Activity log state
+const activities = ref<EventActivity[]>([])
+const activitiesLoading = ref(false)
 
 const { data: eventData, pending, error } = await useAsyncData(
   `event-${slug.value}`,
@@ -28,6 +34,44 @@ const { data: eventData, pending, error } = await useAsyncData(
 
 const event = computed(() => eventsStore.currentEvent)
 
+// Fetch activities on mount
+async function fetchActivities() {
+  if (!slug.value) return
+  activitiesLoading.value = true
+  try {
+    const response = await $fetch<{ activities: EventActivity[] }>(`/api/events/${slug.value}/activities`)
+    activities.value = response.activities
+  } catch (e) {
+    console.error('Failed to fetch activities:', e)
+  } finally {
+    activitiesLoading.value = false
+  }
+}
+
+// WebSocket for real-time updates
+const { isConnected } = useEventWebSocket(slug, {
+  onRsvpUpdate: (payload) => {
+    // Don't apply updates from our own actions (they're already handled)
+    if (payload.rsvp.userId === authStore.user?.id) return
+
+    eventsStore.applyRsvpUpdate(payload)
+  },
+  onActivity: (activity) => {
+    // Add new activity to the top of the list
+    // Avoid duplicates by checking ID
+    if (!activities.value.find(a => a.id === activity.id)) {
+      activities.value = [activity, ...activities.value].slice(0, 50)
+    }
+  }
+})
+
+// Fetch activities when event is loaded
+watch(event, (e) => {
+  if (e) {
+    fetchActivities()
+  }
+}, { immediate: true })
+
 // Initialize from existing RSVP
 watch(event, (e) => {
   if (e?.userRsvp) {
@@ -36,10 +80,19 @@ watch(event, (e) => {
   }
 }, { immediate: true })
 
-const rsvpsIn = computed(() => event.value?.rsvps?.filter(r => r.status === 'IN') || [])
-const rsvpsOut = computed(() => event.value?.rsvps?.filter(r => r.status === 'OUT') || [])
-const rsvpsMaybe = computed(() => event.value?.rsvps?.filter(r => r.status === 'MAYBE' || r.status === 'IN_IF') || [])
-const rsvpsWaitlist = computed(() => event.value?.rsvps?.filter(r => r.status === 'WAITLIST') || [])
+onUnmounted(() => {
+  if (undoTimeoutId.value) {
+    clearTimeout(undoTimeoutId.value)
+  }
+})
+
+const sortByUpdatedAt = <T extends { updatedAt: string }>(items: T[]) => 
+  [...items].sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
+
+const rsvpsIn = computed(() => sortByUpdatedAt(event.value?.rsvps?.filter(r => r.status === 'IN') || []))
+const rsvpsOut = computed(() => sortByUpdatedAt(event.value?.rsvps?.filter(r => r.status === 'OUT') || []))
+const rsvpsMaybe = computed(() => sortByUpdatedAt(event.value?.rsvps?.filter(r => r.status === 'MAYBE' || r.status === 'IN_IF') || []))
+const rsvpsWaitlist = computed(() => sortByUpdatedAt(event.value?.rsvps?.filter(r => r.status === 'WAITLIST') || []))
 
 // Active list based on tab
 const activeRsvpList = computed(() => {
@@ -63,18 +116,20 @@ const activeTabColor = computed(() => {
 })
 
 const responseTabs = computed(() => {
-  const tabs = [
+  const tabs: Array<{ label: string; value: string; badge: { label: number; variant: 'soft'; color: 'primary' | 'error' | 'warning' | 'info' } }> = [
     { label: 'In', value: 'in', badge: {
-      label: rsvpsIn.value.length, variant: 'soft' as const, color: 'primary' as const } },
-    { label: 'Out', value: 'out', badge: {
-      label: rsvpsOut.value.length, variant: 'soft' as const, color: 'error' as const } },
-    { label: 'Maybe', value: 'maybe', badge: {
-      label: rsvpsMaybe.value.length, variant: 'soft' as const, color: 'warning' as const } }
+      label: rsvpsIn.value.length, variant: 'soft', color: 'primary' } }
   ]
   if (rsvpsWaitlist.value.length > 0) {
     tabs.push({ label: 'Waitlist', value: 'waitlist', badge: {
-      label: rsvpsWaitlist.value.length, variant: 'soft' as const, color: 'primary' as const } })
+      label: rsvpsWaitlist.value.length, variant: 'soft', color: 'info' } })
   }
+  tabs.push(
+    { label: 'Out', value: 'out', badge: {
+      label: rsvpsOut.value.length, variant: 'soft', color: 'error' } },
+    { label: 'Maybe', value: 'maybe', badge: {
+      label: rsvpsMaybe.value.length, variant: 'soft', color: 'warning' } }
+  )
   return tabs
 })
 
@@ -83,9 +138,37 @@ const isFull = computed(() => {
   return (event.value.rsvpCount ?? 0) >= event.value.maxPlayers
 })
 
-const isConfirmed = computed(() => event.value?.userRsvp?.status === 'IN')
-const isOnWaitlist = computed(() => event.value?.userRsvp?.status === 'WAITLIST')
+const isConfirmed = computed(() => {
+  if (event.value?.userRsvp?.status === 'IN') return true
+  // Fallback: check if user is in the rsvps list with IN status
+  if (event.value?.rsvps && authStore.user?.id) {
+    return event.value.rsvps.some(r => r.userId === authStore.user.id && r.status === 'IN')
+  }
+  return false
+})
+const isOnWaitlist = computed(() => {
+  if (event.value?.userRsvp?.status === 'WAITLIST') return true
+  // Fallback: check if user is in the rsvps list with WAITLIST status
+  if (event.value?.rsvps && authStore.user?.id) {
+    return event.value.rsvps.some(r => r.userId === authStore.user.id && r.status === 'WAITLIST')
+  }
+  return false
+})
+const hasUserRsvp = computed(() => !!event.value?.userRsvp)
 const hasWaitlist = computed(() => (event.value?.waitlistCount ?? 0) > 0)
+
+const waitlistPosition = computed(() => {
+  if (!isOnWaitlist.value || !event.value?.rsvps) return 0
+  const waitlistRsvps = event.value.rsvps.filter(r => r.status === 'WAITLIST')
+  const userIndex = waitlistRsvps.findIndex(r => r.userId === authStore.user?.id)
+  return userIndex >= 0 ? userIndex + 1 : 0
+})
+
+function getOrdinalSuffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]!)
+}
 
 // Grace period: if user RSVP'd within last 60 seconds and no waitlist, they can silently drop out
 const isWithinGracePeriod = computed(() => {
@@ -98,21 +181,65 @@ const isWithinGracePeriod = computed(() => {
 const canSilentDropOut = computed(() => isWithinGracePeriod.value && !hasWaitlist.value)
 const spotOpenedUp = computed(() => isOnWaitlist.value && !isFull.value)
 
+const IN_IF_PREFIX = 'I can come if '
+
 const canSubmit = computed(() => {
   if (!selectedStatus.value) return false
-  if (selectedStatus.value === 'IN_IF' && !comment.value.trim()) return false
+  if (selectedStatus.value === 'IN_IF') {
+    const trimmed = comment.value.trim()
+    if (!trimmed || trimmed === IN_IF_PREFIX.trim()) return false
+  }
   return true
 })
 
+function hasUnsavedInIfComment() {
+  const trimmed = comment.value.trim()
+  return trimmed === '' || trimmed === IN_IF_PREFIX.trim() || comment.value === IN_IF_PREFIX
+}
+
 async function selectStatus(status: RsvpStatus) {
   const previousStatus = selectedStatus.value
+  
+  // Clear comment if leaving IN_IF with unsaved/unmodified prefix
+  if (previousStatus === 'IN_IF' && status !== 'IN_IF' && hasUnsavedInIfComment()) {
+    comment.value = ''
+  }
+  
   selectedStatus.value = status
 
-  if (status !== 'IN_IF') {
+  if (status === 'IN_IF' && previousStatus !== 'IN_IF') {
+    comment.value = IN_IF_PREFIX
+    await nextTick()
+    noteInputRef.value?.focus()
+    noteInputRef.value?.setSelectionRange(comment.value.length, comment.value.length)
+  } else if (status !== 'IN_IF') {
     await autoSave()
-  } else if (previousStatus !== 'IN_IF' && comment.value.trim()) {
-    await autoSave()
+    if (status === 'IN') {
+      startUndoTimer()
+    }
   }
+}
+
+function startUndoTimer() {
+  if (undoTimeoutId.value) {
+    clearTimeout(undoTimeoutId.value)
+  }
+  showUndoButton.value = true
+  undoTimeoutId.value = setTimeout(() => {
+    showUndoButton.value = false
+    undoTimeoutId.value = null
+  }, 10000)
+}
+
+async function handleUndo() {
+  if (undoTimeoutId.value) {
+    clearTimeout(undoTimeoutId.value)
+    undoTimeoutId.value = null
+  }
+  showUndoButton.value = false
+  selectedStatus.value = null
+  comment.value = ''
+  await eventsStore.submitRsvp(slug.value, 'OUT', undefined)
 }
 
 async function autoSave() {
@@ -155,10 +282,7 @@ async function submitRsvp(isAutoSave = false) {
   try {
     await eventsStore.submitRsvp(slug.value, selectedStatus.value, comment.value || undefined)
 
-    if (isAutoSave) {
-      showSavedIndicator.value = true
-      savedAnimationKey.value++
-    } else {
+    if (!isAutoSave) {
       const messages: Record<RsvpStatus, { title: string; description: string }> = {
         IN: { title: "You're in!", description: 'See you there!' },
         OUT: { title: 'Got it', description: "We'll miss you!" },
@@ -357,6 +481,24 @@ function formatRelativeDay(datetime: string) {
   return eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function formatTimeAgo(datetime: string) {
+  const date = new Date(datetime)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+
+  if (diffSec < 60) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffHour < 24) return `${diffHour}h ago`
+  if (diffDay < 7) return `${diffDay}d ago`
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const displayedActivities = computed(() => activities.value.slice(0, 10))
+
 interface CalendarDay {
   date: Date
   dayNum: number
@@ -440,9 +582,40 @@ useSeoMeta({
 
 <template>
   <div class="max-w-lg mx-auto px-4 py-6">
-    <!-- Loading -->
-    <div v-if="pending" class="flex justify-center py-12">
-      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-gray-400" />
+    <!-- Loading Skeleton -->
+    <div v-if="pending" class="space-y-6">
+      <!-- Header skeleton -->
+      <div class="space-y-3">
+        <div class="flex justify-between items-center">
+          <USkeleton class="h-5 w-32" />
+          <USkeleton class="h-5 w-28" />
+        </div>
+        <!-- Calendar skeleton -->
+        <div class="flex gap-1">
+          <USkeleton v-for="i in 7" :key="i" class="flex-1 h-14 rounded-lg" />
+        </div>
+      </div>
+
+      <!-- RSVP section skeleton -->
+      <div class="space-y-3">
+        <USkeleton class="h-5 w-24" />
+        <div class="flex gap-2">
+          <USkeleton v-for="i in 4" :key="i" class="flex-1 h-16 rounded-xl" />
+        </div>
+      </div>
+
+      <!-- Progress skeleton -->
+      <div class="flex items-center gap-4">
+        <USkeleton class="h-3 w-24 rounded-full" />
+        <USkeleton class="h-4 w-16" />
+      </div>
+
+      <!-- Responses skeleton -->
+      <div class="space-y-2">
+        <USkeleton class="h-8 w-full rounded-lg" />
+        <USkeleton class="h-12 w-full rounded-lg" />
+        <USkeleton class="h-12 w-full rounded-lg" />
+      </div>
     </div>
 
     <!-- Error -->
@@ -512,151 +685,163 @@ useSeoMeta({
 
       
 
-      <!-- Waitlist Status Section -->
-      <div v-if="!event.isOrganizer && isOnWaitlist" class="mb-6">
-        <div v-if="spotOpenedUp" class="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-4 border-2 border-emerald-500">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-              <UIcon name="i-heroicons-sparkles" class="w-6 h-6 text-emerald-600" />
-            </div>
-            <div class="flex-1">
-              <p class="font-semibold text-emerald-900 dark:text-emerald-100">A spot opened up!</p>
-              <p class="text-sm text-emerald-700 dark:text-emerald-300">Claim it before someone else does</p>
-            </div>
-          </div>
-          <UButton color="primary" size="lg" block :loading="rsvpLoading" @click="handleClaimSpot">
-            Claim This Spot
-          </UButton>
-        </div>
-        <div v-else class="bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-4 border-2 border-violet-500">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-full flex items-center justify-center">
-              <UIcon name="i-heroicons-clock" class="w-6 h-6 text-violet-600" />
-            </div>
-            <div class="flex-1">
-              <p class="font-semibold text-violet-900 dark:text-violet-100">You're on the waitlist</p>
-              <p class="text-sm text-violet-700 dark:text-violet-300">We'll let you know if a spot opens</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- RSVP Section -->
-      <div v-else-if="!event.isOrganizer && !isOnWaitlist" class="space-y-4 mb-6">
+      <div v-if="!event.isOrganizer" class="space-y-4 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
           {{ isConfirmed ? "See you there!" : "Are you in?" }}
         </h2>
 
-        <!-- Full Event - Join Waitlist -->
-        <div v-if="isFull && !isConfirmed" class="space-y-3">
-          <div class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 flex items-center gap-2">
-            <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-amber-500" />
-            <span class="text-sm text-amber-700 dark:text-amber-300">This event is full</span>
-          </div>
-          <button
-            type="button"
-            class="w-full relative p-5 rounded-2xl border-2 transition-all text-left border-violet-500 bg-violet-50 dark:bg-violet-900/20 hover:border-violet-600"
-            @click="handleJoinWaitlist"
-          >
-            <UIcon name="i-heroicons-clock" class="w-8 h-8 mb-2 text-violet-500" />
-            <p class="font-semibold text-violet-700 dark:text-violet-300">Join Waitlist</p>
-            <p class="text-sm text-violet-600 dark:text-violet-400 mt-1">Get notified if a spot opens</p>
-          </button>
-          <p v-if="event.waitlistCount" class="text-center text-sm text-gray-500">
-            {{ event.waitlistCount }} {{ event.waitlistCount === 1 ? 'person' : 'people' }} on waitlist
-          </p>
+        <!-- Full Event Banner -->
+        <div v-if="isFull" class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 flex items-center gap-2">
+          <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-amber-500" />
+          <span class="text-sm text-amber-700 dark:text-amber-300">This event is full</span>
         </div>
 
-        <!-- Normal RSVP Buttons -->
-        <template v-else>
-          <div class="grid grid-cols-2 gap-3">
-            <div
-              :class="[
-                'relative p-5 rounded-2xl border-2 transition-all text-left',
-                selectedStatus === 'IN' || isConfirmed
-                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300',
-                !isConfirmed && 'cursor-pointer'
-              ]"
-              @click="!isConfirmed && selectStatus('IN')"
-            >
-              <UIcon :name="isConfirmed ? 'i-heroicons-check-circle-solid' : 'i-heroicons-check-circle'" :class="['w-8 h-8 mb-2', selectedStatus === 'IN' || isConfirmed ? 'text-emerald-500' : 'text-gray-400']" />
-              <p :class="['font-semibold', selectedStatus === 'IN' || isConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-900 dark:text-white']">{{ isConfirmed ? "You're In" : "I'm In" }}</p>
-              <div v-if="selectedStatus === 'IN' || isConfirmed" class="absolute top-3 right-3">
-                <UIcon name="i-heroicons-check-circle-solid" class="w-5 h-5 text-emerald-500" />
-              </div>
-              <UButton
-                v-if="isConfirmed"
-                color="error"
-                variant="outline"
-                size="xs"
-                class="mt-2"
-                :loading="droppingOut"
-                @click.stop="canSilentDropOut ? handleSilentDropOut() : showDropOutModal = true"
-                icon="i-heroicons-x-mark"
-              >
-                Drop Out
-              </UButton>
+        <!-- Compact RSVP Buttons -->
+        <template v-if="true">
+          <!-- Confirmed state banner -->
+          <div v-if="isConfirmed" class="flex items-center justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-check-circle-solid" class="w-5 h-5 text-emerald-500" />
+              <span class="font-medium text-emerald-700 dark:text-emerald-300">You're in!</span>
             </div>
+            <UButton
+              v-if="showUndoButton"
+              color="neutral"
+              variant="outline"
+              size="md"
+              icon="i-heroicons-arrow-uturn-left"
+              :disabled="droppingOut"
+              @click="handleUndo"
+              label="Undo"
+            />
+            <UButton
+              v-else
+              color="error"
+              variant="outline"
+              size="md"
+              icon="i-heroicons-x-mark"
+              :disabled="droppingOut"
+              @click="canSilentDropOut ? handleSilentDropOut() : showDropOutModal = true"
+              label="Drop out"
+            />
+          </div>
 
+          <!-- Spot opened up banner -->
+          <div v-else-if="spotOpenedUp" class="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border-2 border-emerald-500">
+            <div class="flex items-center gap-3 mb-3">
+              <UIcon name="i-heroicons-sparkles" class="w-6 h-6 text-emerald-600" />
+              <div class="flex-1">
+                <p class="font-semibold text-emerald-900 dark:text-emerald-100">A spot opened up!</p>
+                <p class="text-sm text-emerald-700 dark:text-emerald-300">Claim it before someone else does</p>
+              </div>
+            </div>
+            <UButton color="primary" size="lg" block :loading="rsvpLoading" @click="handleClaimSpot">
+              Claim This Spot
+            </UButton>
+          </div>
+
+          <!-- Response buttons row -->
+          <div v-if="!isConfirmed && !spotOpenedUp" class="flex gap-2">
+            <!-- Waitlist position (replaces I'm In when on waitlist) -->
+            <div
+              v-if="isOnWaitlist"
+              class="flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-violet-100 dark:bg-violet-900/30 ring-2 ring-violet-500"
+            >
+              <UIcon name="i-heroicons-clock" class="w-6 h-6 text-violet-500" />
+              <span class="text-xs font-medium text-violet-700 dark:text-violet-300 text-center">
+                {{ getOrdinalSuffix(waitlistPosition) }} on waitlist
+              </span>
+            </div>
+            <!-- I'm In / Join Waitlist -->
+            <button
+              v-else
+              type="button"
+              :class="[
+                'flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all',
+                isFull
+                  ? selectedStatus === 'WAITLIST'
+                    ? 'bg-violet-100 dark:bg-violet-900/30 ring-2 ring-violet-500'
+                    : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  : selectedStatus === 'IN'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/30 ring-2 ring-emerald-500'
+                    : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
+              ]"
+              @click="isFull ? handleJoinWaitlist() : selectStatus('IN')"
+            >
+              <UIcon
+                :name="isFull
+                  ? (selectedStatus === 'WAITLIST' ? 'i-heroicons-clock-solid' : 'i-heroicons-clock')
+                  : (selectedStatus === 'IN' ? 'i-heroicons-check-circle-solid' : 'i-heroicons-check-circle')"
+                :class="['w-6 h-6', isFull
+                  ? (selectedStatus === 'WAITLIST' ? 'text-violet-500' : 'text-gray-400')
+                  : (selectedStatus === 'IN' ? 'text-emerald-500' : 'text-gray-400')]"
+              />
+              <span :class="['text-xs font-medium', isFull
+                ? (selectedStatus === 'WAITLIST' ? 'text-violet-700 dark:text-violet-300' : 'text-gray-600 dark:text-gray-400')
+                : (selectedStatus === 'IN' ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400')]">
+                {{ isFull ? 'Join Waitlist' : "I'm In" }}
+              </span>
+            </button>
+
+            <!-- Out -->
             <button
               type="button"
-              :disabled="isConfirmed"
               :class="[
-                'relative p-5 rounded-2xl border-2 transition-all text-left',
+                'flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all',
                 selectedStatus === 'OUT'
-                  ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                  : isConfirmed
-                    ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-red-300'
+                  ? 'bg-red-100 dark:bg-red-900/30 ring-2 ring-red-500'
+                  : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
               ]"
               @click="selectStatus('OUT')"
             >
-              <UIcon name="i-heroicons-x-circle" :class="['w-8 h-8 mb-2', selectedStatus === 'OUT' ? 'text-red-500' : 'text-gray-400']" />
-              <p :class="['font-semibold', selectedStatus === 'OUT' ? 'text-red-700 dark:text-red-300' : 'text-gray-900 dark:text-white']">Can't Make It</p>
-              <div v-if="selectedStatus === 'OUT'" class="absolute top-3 right-3">
-                <UIcon name="i-heroicons-check-circle-solid" class="w-5 h-5 text-red-500" />
-              </div>
+              <UIcon
+                :name="selectedStatus === 'OUT' ? 'i-heroicons-x-circle-solid' : 'i-heroicons-x-circle'"
+                :class="['w-6 h-6', selectedStatus === 'OUT' ? 'text-red-500' : 'text-gray-400']"
+              />
+              <span :class="['text-xs font-medium', selectedStatus === 'OUT' ? 'text-red-700 dark:text-red-300' : 'text-gray-600 dark:text-gray-400']">
+                Out
+              </span>
             </button>
 
+            <!-- Maybe -->
             <button
               type="button"
-              :disabled="isConfirmed"
               :class="[
-                'relative p-5 rounded-2xl border-2 transition-all text-left',
+                'flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all',
                 selectedStatus === 'MAYBE'
-                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                  : isConfirmed
-                    ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-amber-300'
+                  ? 'bg-amber-100 dark:bg-amber-900/30 ring-2 ring-amber-500'
+                  : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
               ]"
               @click="selectStatus('MAYBE')"
             >
-              <UIcon name="i-heroicons-question-mark-circle" :class="['w-8 h-8 mb-2', selectedStatus === 'MAYBE' ? 'text-amber-500' : 'text-gray-400']" />
-              <p :class="['font-semibold', selectedStatus === 'MAYBE' ? 'text-amber-700 dark:text-amber-300' : 'text-gray-900 dark:text-white']">Maybe</p>
-              <div v-if="selectedStatus === 'MAYBE'" class="absolute top-3 right-3">
-                <UIcon name="i-heroicons-check-circle-solid" class="w-5 h-5 text-amber-500" />
-              </div>
+              <UIcon
+                :name="selectedStatus === 'MAYBE' ? 'i-heroicons-question-mark-circle-solid' : 'i-heroicons-question-mark-circle'"
+                :class="['w-6 h-6', selectedStatus === 'MAYBE' ? 'text-amber-500' : 'text-gray-400']"
+              />
+              <span :class="['text-xs font-medium', selectedStatus === 'MAYBE' ? 'text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-400']">
+                Maybe
+              </span>
             </button>
 
+            <!-- In If... -->
             <button
               type="button"
-              :disabled="isConfirmed"
               :class="[
-                'relative p-5 rounded-2xl border-2 transition-all text-left',
+                'flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl transition-all',
                 selectedStatus === 'IN_IF'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : isConfirmed
-                    ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500'
+                  : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
               ]"
               @click="selectStatus('IN_IF')"
             >
-              <UIcon name="i-heroicons-chat-bubble-bottom-center-text" :class="['w-8 h-8 mb-2', selectedStatus === 'IN_IF' ? 'text-blue-500' : 'text-gray-400']" />
-              <p :class="['font-semibold', selectedStatus === 'IN_IF' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white']">In If...</p>
-              <div v-if="selectedStatus === 'IN_IF'" class="absolute top-3 right-3">
-                <UIcon name="i-heroicons-check-circle-solid" class="w-5 h-5 text-blue-500" />
-              </div>
+              <UIcon
+                :name="selectedStatus === 'IN_IF' ? 'i-heroicons-chat-bubble-left-ellipsis-solid' : 'i-heroicons-chat-bubble-left-ellipsis'"
+                :class="['w-6 h-6', selectedStatus === 'IN_IF' ? 'text-blue-500' : 'text-gray-400']"
+              />
+              <span :class="['text-xs font-medium', selectedStatus === 'IN_IF' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400']">
+                I'm In If...
+              </span>
             </button>
           </div>
 
@@ -669,19 +854,27 @@ useSeoMeta({
                 v-model="comment"
                 type="text"
                 :placeholder="selectedStatus === 'IN_IF' ? 'What needs to happen?' : 'Add a note...'"
-                class="w-full px-4 py-3 pr-12 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:border-primary-500 focus:ring-0 focus:outline-none transition-colors"
+                class="w-full px-4 py-3 pr-20 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:border-primary-500 focus:ring-0 focus:outline-none transition-colors"
                 @keydown="handleNoteKeydown"
                 @blur="selectedStatus !== 'IN_IF' && saveNote()"
               />
-              <button
-                v-if="comment.trim()"
-                type="button"
-                class="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors"
-                :class="hasUnsavedNote ? 'text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20' : 'text-emerald-500'"
-                @click="saveNote"
-              >
-                <UIcon :name="hasUnsavedNote ? 'i-heroicons-arrow-up-circle-solid' : 'i-heroicons-check-circle-solid'" class="w-6 h-6" />
-              </button>
+              <div v-if="comment.trim()" class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button
+                  type="button"
+                  class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  @click="comment = ''; noteInputRef?.focus()"
+                >
+                  <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  class="p-1.5 rounded-lg transition-colors"
+                  :class="hasUnsavedNote ? 'text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20' : 'text-emerald-500'"
+                  @click="saveNote"
+                >
+                  <UIcon :name="hasUnsavedNote ? 'i-heroicons-arrow-up-circle-solid' : 'i-heroicons-check-circle-solid'" class="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <!-- Display state (not editing, has note) -->
@@ -708,33 +901,18 @@ useSeoMeta({
             </button>
           </div>
 
-          <!-- Submit for IN_IF when no existing RSVP -->
+          <!-- Submit for IN_IF -->
           <UButton
-            v-if="selectedStatus === 'IN_IF' && !event.userRsvp && comment.trim()"
+            v-if="selectedStatus === 'IN_IF' && canSubmit"
             color="primary"
             size="xl"
             block
             :loading="rsvpLoading"
+            icon="i-heroicons-check"
             @click="handleSubmit"
           >
-            Submit Response
+            Save
           </UButton>
-
-          <!-- Saved indicator -->
-          <Transition
-            enter-active-class="transition-all duration-300 ease-out"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-          >
-            <p
-              v-if="showSavedIndicator && !isEditingNote"
-              :key="savedAnimationKey"
-              class="text-center text-xs text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1"
-            >
-              <UIcon name="i-heroicons-check" class="w-3 h-3" />
-              Saved
-            </p>
-          </Transition>
         </template>
       </div>
 
@@ -745,26 +923,6 @@ useSeoMeta({
         </UButton>
       </div>
 
-
-      <!-- Progress and Organizer Row -->
-        <div class="flex items-center gap-4">
-          <div class="flex-1 flex items-center gap-2">
-            <UProgress
-              :model-value="event.rsvpCount"
-              :max="event.maxPlayers"
-              color="primary"
-              size="xl"
-              class="w-24"
-            />
-            <span class="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-              <UIcon name="i-heroicons-user-group" class="w-4 h-4" />
-              {{ event.rsvpCount }}/{{ event.maxPlayers }}
-            </span>
-          </div>
-          <span class="text-sm text-gray-500">
-            Organizer: <span class="text-primary-500 font-medium">{{ event.organizer.name }}</span>
-          </span>
-        </div>
       <!-- Responses Section with Tabs -->
       <div v-if="event.rsvps && event.rsvps.length > 0" class="mt-8">
         <UTabs
@@ -775,67 +933,107 @@ useSeoMeta({
           class="w-full"
         />
 
-        <!-- Response List -->
-        <div class="mt-4 space-y-2">
+        <!-- Response List with animations -->
+        <div class="mt-4">
           <div v-if="activeRsvpList.length === 0" class="text-center py-6 text-gray-500">
             No responses yet
           </div>
-          <div
-            v-for="rsvp in activeRsvpList"
-            :key="rsvp.id"
-            :class="[
-              'rounded-lg px-3 py-2',
-              activeResponseTab === 'in' ? 'bg-emerald-50 dark:bg-emerald-900/20' : '',
-              activeResponseTab === 'out' ? 'bg-red-50 dark:bg-red-900/20' : '',
-              activeResponseTab === 'maybe' ? 'bg-amber-50 dark:bg-amber-900/20' : '',
-              activeResponseTab === 'waitlist' ? 'bg-violet-50 dark:bg-violet-900/20' : ''
-            ]"
-          >
-            <div class="flex items-center gap-2">
-              <span
-                :class="[
-                  'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium',
-                  activeResponseTab === 'in' ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300' : '',
-                  activeResponseTab === 'out' ? 'bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-300' : '',
-                  activeResponseTab === 'maybe' ? 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-300' : '',
-                  activeResponseTab === 'waitlist' ? 'bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-300' : ''
-                ]"
-              >
-                {{ getInitials(rsvp.name) }}
-              </span>
-              <span
-                :class="[
-                  'text-sm',
-                  activeResponseTab === 'in' ? 'text-emerald-700 dark:text-emerald-300' : '',
-                  activeResponseTab === 'out' ? 'text-red-700 dark:text-red-300' : '',
-                  activeResponseTab === 'maybe' ? 'text-amber-700 dark:text-amber-300' : '',
-                  activeResponseTab === 'waitlist' ? 'text-violet-700 dark:text-violet-300' : ''
-                ]"
-              >
-                {{ rsvp.name }}
-              </span>
-              <UBadge
-                v-if="rsvp.status === 'IN_IF'"
-                label="If..."
-                color="info"
-                variant="subtle"
-                size="xs"
-              />
-            </div>
-            <p
-              v-if="rsvp.comment"
+          <TransitionGroup name="rsvp-list" tag="div" class="space-y-2">
+            <div
+              v-for="rsvp in activeRsvpList"
+              :key="rsvp.id"
               :class="[
-                'mt-1 text-sm italic pl-8',
-                activeResponseTab === 'in' ? 'text-emerald-600 dark:text-emerald-400' : '',
-                activeResponseTab === 'out' ? 'text-red-600 dark:text-red-400' : '',
-                activeResponseTab === 'maybe' ? 'text-amber-600 dark:text-amber-400' : '',
-                activeResponseTab === 'waitlist' ? 'text-violet-600 dark:text-violet-400' : ''
+                'rounded-lg px-3 py-2 transition-all duration-200',
+                activeResponseTab === 'in' ? 'bg-emerald-50 dark:bg-emerald-900/20' : '',
+                activeResponseTab === 'out' ? 'bg-red-50 dark:bg-red-900/20' : '',
+                activeResponseTab === 'maybe' ? 'bg-amber-50 dark:bg-amber-900/20' : '',
+                activeResponseTab === 'waitlist' ? 'bg-violet-50 dark:bg-violet-900/20' : ''
               ]"
             >
-              "{{ rsvp.comment }}"
-            </p>
+              <div class="flex items-center gap-2">
+                <span
+                  :class="[
+                    'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium',
+                    activeResponseTab === 'in' ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300' : '',
+                    activeResponseTab === 'out' ? 'bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-300' : '',
+                    activeResponseTab === 'maybe' ? 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-300' : '',
+                    activeResponseTab === 'waitlist' ? 'bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-300' : ''
+                  ]"
+                >
+                  {{ getInitials(rsvp.name) }}
+                </span>
+                <span
+                  :class="[
+                    'text-sm',
+                    activeResponseTab === 'in' ? 'text-emerald-700 dark:text-emerald-300' : '',
+                    activeResponseTab === 'out' ? 'text-red-700 dark:text-red-300' : '',
+                    activeResponseTab === 'maybe' ? 'text-amber-700 dark:text-amber-300' : '',
+                    activeResponseTab === 'waitlist' ? 'text-violet-700 dark:text-violet-300' : ''
+                  ]"
+                >
+                  {{ rsvp.name }}
+                </span>
+                <UBadge
+                  v-if="rsvp.status === 'IN_IF'"
+                  label="If..."
+                  color="info"
+                  variant="subtle"
+                  size="xs"
+                />
+                <UBadge
+                  v-if="rsvp.userId === event.organizer?.id"
+                  label="Organizer"
+                  color="primary"
+                  variant="subtle"
+                  size="xs"
+                />
+              </div>
+              <p
+                v-if="rsvp.comment"
+                :class="[
+                  'mt-1 text-sm italic pl-8',
+                  activeResponseTab === 'in' ? 'text-emerald-600 dark:text-emerald-400' : '',
+                  activeResponseTab === 'out' ? 'text-red-600 dark:text-red-400' : '',
+                  activeResponseTab === 'maybe' ? 'text-amber-600 dark:text-amber-400' : '',
+                  activeResponseTab === 'waitlist' ? 'text-violet-600 dark:text-violet-400' : ''
+                ]"
+              >
+                "{{ rsvp.comment }}"
+              </p>
+            </div>
+          </TransitionGroup>
+        </div>
+      </div>
+
+      <!-- Activity Log Section -->
+      <div v-if="displayedActivities.length > 0" class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Recent Activity</h3>
+          <div v-if="isConnected" class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span class="text-xs text-gray-400">Live</span>
           </div>
         </div>
+        <TransitionGroup name="activity-list" tag="ul" class="space-y-2">
+          <li
+            v-for="activity in displayedActivities"
+            :key="activity.id"
+            class="flex items-center gap-2 text-sm"
+          >
+            <span
+              :class="[
+                'w-1.5 h-1.5 rounded-full flex-shrink-0',
+                activity.type === 'RSVP_IN' ? 'bg-emerald-500' : '',
+                activity.type === 'RSVP_OUT' ? 'bg-red-500' : '',
+                activity.type === 'RSVP_MAYBE' ? 'bg-amber-500' : '',
+                activity.type === 'RSVP_WAITLIST' ? 'bg-violet-500' : '',
+                activity.type === 'RSVP_IN_IF' ? 'bg-blue-500' : ''
+              ]"
+            />
+            <span class="text-gray-700 dark:text-gray-300">{{ activity.message }}</span>
+            <span class="text-gray-400 text-xs ml-auto flex-shrink-0">{{ formatTimeAgo(activity.createdAt) }}</span>
+          </li>
+        </TransitionGroup>
       </div>
 
       <!-- Share Section -->
@@ -870,3 +1068,39 @@ useSeoMeta({
     </UModal>
   </div>
 </template>
+
+<style scoped>
+/* RSVP list animations */
+.rsvp-list-enter-active,
+.rsvp-list-leave-active {
+  transition: all 0.3s ease;
+}
+.rsvp-list-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+.rsvp-list-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+.rsvp-list-move {
+  transition: transform 0.3s ease;
+}
+
+/* Activity list animations */
+.activity-list-enter-active,
+.activity-list-leave-active {
+  transition: all 0.3s ease;
+}
+.activity-list-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+.activity-list-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.activity-list-move {
+  transition: transform 0.3s ease;
+}
+</style>

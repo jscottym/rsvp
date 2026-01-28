@@ -92,10 +92,12 @@ export default defineEventHandler(async (event) => {
       waitlistCount,
       rsvps: eventData.rsvps.map(r => ({
         id: r.id,
+        userId: r.user?.id || null,
         status: r.status,
         comment: r.comment,
         name: r.user?.name || r.guestName || 'Anonymous',
-        isUser: !!r.user
+        isUser: !!r.user,
+        updatedAt: r.updatedAt.toISOString()
       })),
       isOrganizer,
       userRsvp

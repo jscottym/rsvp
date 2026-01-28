@@ -8,6 +8,12 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
 
+  nitro: {
+    experimental: {
+      websocket: true
+    }
+  },
+
   css: ['~/assets/css/main.css'],
 
   runtimeConfig: {
