@@ -180,7 +180,7 @@ const responseTabs = computed(() => {
     label: string;
     value: string;
     badge: {
-      label: number;
+      label: number | string;
       variant: 'soft';
       color: 'primary' | 'error' | 'warning' | 'info';
     };
@@ -189,7 +189,7 @@ const responseTabs = computed(() => {
       label: 'In',
       value: 'in',
       badge: {
-        label: rsvpsIn.value.length,
+        label: `${rsvpsIn.value.length}/${event.value?.maxPlayers ?? 0}`,
         variant: 'soft',
         color: 'primary',
       },

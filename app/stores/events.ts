@@ -1,77 +1,82 @@
-import { defineStore } from 'pinia'
+import { defineStore } from 'pinia';
 
-type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST'
+type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST';
 
 interface EventRsvp {
-  id: string
-  userId: string | null
-  status: RsvpStatus
-  comment: string | null
-  name: string
-  isUser: boolean
-  updatedAt: string
+  id: string;
+  userId: string | null;
+  status: RsvpStatus;
+  comment: string | null;
+  name: string;
+  isUser: boolean;
+  updatedAt: string;
 }
 
 interface Event {
-  id: string
-  slug: string
-  title: string
-  sportType: string
-  description?: string
-  location: string
-  datetime: string
-  endDatetime?: string
-  minPlayers: number
-  maxPlayers: number
-  allowSharing: boolean
-  sharingNote?: string
+  id: string;
+  slug: string;
+  title: string;
+  sportType: string;
+  description?: string;
+  location: string;
+  datetime: string;
+  endDatetime?: string;
+  minPlayers: number;
+  maxPlayers: number;
+  allowSharing: boolean;
+  sharingNote?: string;
   organizer?: {
-    id: string
-    name: string
-  }
-  rsvpCount?: number
-  waitlistCount?: number
-  rsvps?: EventRsvp[]
-  isOrganizer?: boolean
-  userRsvp?: { status: RsvpStatus; comment: string | null; createdAt?: string; updatedAt?: string } | null
+    id: string;
+    name: string;
+  };
+  rsvpCount?: number;
+  waitlistCount?: number;
+  rsvps?: EventRsvp[];
+  isOrganizer?: boolean;
+  userRsvp?: {
+    status: RsvpStatus;
+    comment: string | null;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
 }
 
 interface RsvpDetail {
-  id: string
-  status: RsvpStatus
-  comment: string | null
-  name: string
-  phone: string | null
-  isUser: boolean
-  createdAt: string
+  id: string;
+  status: RsvpStatus;
+  comment: string | null;
+  name: string;
+  phone: string | null;
+  isUser: boolean;
+  createdAt: string;
 }
 
 interface DashboardEvent {
-  id: string
-  slug: string
-  title: string
-  sportType: string
-  location: string
-  datetime: string
-  endDatetime: string | null
-  maxPlayers: number
-  rsvpCount: number
-  isOrganizer: boolean
-  userRsvpStatus: RsvpStatus | null
+  id: string;
+  slug: string;
+  title: string;
+  sportType: string;
+  location: string;
+  datetime: string;
+  endDatetime: string | null;
+  maxPlayers: number;
+  rsvpCount: number;
+  isOrganizer: boolean;
+  userRsvpStatus: RsvpStatus | null;
   organizer: {
-    id: string
-    name: string | null
-  }
+    id: string;
+    name: string | null;
+  };
 }
 
 interface EventsState {
-  events: Event[]
-  currentEvent: Event | null
-  rsvps: RsvpDetail[]
-  loading: boolean
-  dashboardUpcoming: DashboardEvent[]
-  dashboardPast: DashboardEvent[]
-  dashboardLoading: boolean
+  events: Event[];
+  currentEvent: Event | null;
+  rsvps: RsvpDetail[];
+  loading: boolean;
+  dashboardUpcoming: DashboardEvent[];
+  dashboardPast: DashboardEvent[];
+  dashboardLoading: boolean;
 }
 
 export const useEventsStore = defineStore('events', {
@@ -82,264 +87,277 @@ export const useEventsStore = defineStore('events', {
     loading: false,
     dashboardUpcoming: [],
     dashboardPast: [],
-    dashboardLoading: false
+    dashboardLoading: false,
   }),
 
   getters: {
-    attendees: (state) => state.rsvps.filter(r => r.status === 'IN'),
-    declinedCount: (state) => state.rsvps.filter(r => r.status === 'OUT').length,
+    attendees: (state) => state.rsvps.filter((r) => r.status === 'IN'),
+    declinedCount: (state) =>
+      state.rsvps.filter((r) => r.status === 'OUT').length,
     phoneNumbers: (state) => {
       return state.rsvps
-        .filter(r => r.status === 'IN' && r.phone)
-        .map(r => r.phone!)
+        .filter((r) => r.status === 'IN' && r.phone)
+        .map((r) => r.phone!);
     },
-    waitlistRsvps: (state) => state.rsvps.filter(r => r.status === 'WAITLIST'),
+    waitlistRsvps: (state) =>
+      state.rsvps.filter((r) => r.status === 'WAITLIST'),
     waitlistCount: (state) => state.currentEvent?.waitlistCount ?? 0,
     isFull: (state) => {
-      if (!state.currentEvent) return false
-      return (state.currentEvent.rsvpCount ?? 0) >= state.currentEvent.maxPlayers
-    }
+      if (!state.currentEvent) return false;
+      return (
+        (state.currentEvent.rsvpCount ?? 0) >= state.currentEvent.maxPlayers
+      );
+    },
   },
 
   actions: {
     async fetchMyEvents() {
-      const authStore = useAuthStore()
-      this.loading = true
+      const authStore = useAuthStore();
+      this.loading = true;
 
       try {
-        const token = await authStore.getIdToken()
+        const token = await authStore.getIdToken();
         const response = await $fetch<{ events: Event[] }>('/api/events', {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        })
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
 
-        this.events = response.events
+        this.events = response.events;
       } catch (error) {
-        console.error('Failed to fetch events:', error)
+        console.error('Failed to fetch events:', error);
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     async fetchDashboardEvents() {
-      const authStore = useAuthStore()
-      this.dashboardLoading = true
+      const authStore = useAuthStore();
+      this.dashboardLoading = true;
 
       try {
-        const token = await authStore.getIdToken()
-        const response = await $fetch<{ upcoming: DashboardEvent[]; past: DashboardEvent[] }>('/api/events/dashboard', {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        })
+        const token = await authStore.getIdToken();
+        const response = await $fetch<{
+          upcoming: DashboardEvent[];
+          past: DashboardEvent[];
+        }>('/api/events/dashboard', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
 
-        this.dashboardUpcoming = response.upcoming
-        this.dashboardPast = response.past
+        this.dashboardUpcoming = response.upcoming;
+        this.dashboardPast = response.past;
       } catch (error) {
-        console.error('Failed to fetch dashboard events:', error)
+        console.error('Failed to fetch dashboard events:', error);
       } finally {
-        this.dashboardLoading = false
+        this.dashboardLoading = false;
       }
     },
 
     async fetchEvent(slug: string) {
-      const authStore = useAuthStore()
-      this.loading = true
+      const authStore = useAuthStore();
+      this.loading = true;
 
       try {
-        const token = await authStore.getIdToken()
+        const token = await authStore.getIdToken();
         const response = await $fetch<{ event: Event }>(`/api/events/${slug}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        })
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
 
-        this.currentEvent = response.event
-        return response.event
+        this.currentEvent = response.event;
+        return response.event;
       } catch (error) {
-        console.error('Failed to fetch event:', error)
-        return null
+        console.error('Failed to fetch event:', error);
+        return null;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     async createEvent(data: Omit<Event, 'id' | 'slug'>) {
-      const authStore = useAuthStore()
-      this.loading = true
+      const authStore = useAuthStore();
+      this.loading = true;
 
       try {
-        const token = await authStore.getIdToken()
-        if (!token) throw new Error('Not authenticated')
+        const token = await authStore.getIdToken();
+        if (!token) throw new Error('Not authenticated');
 
         const response = await $fetch<{ event: Event }>('/api/events', {
           method: 'POST',
           body: data,
-          headers: { Authorization: `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        this.events.unshift(response.event)
-        return response.event
+        this.events.unshift(response.event);
+        return response.event;
       } catch (error: any) {
-        console.error('Failed to create event:', error)
-        throw error
+        console.error('Failed to create event:', error);
+        throw error;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     async updateEvent(slug: string, data: Partial<Event>) {
-      const authStore = useAuthStore()
-      this.loading = true
+      const authStore = useAuthStore();
+      this.loading = true;
 
       try {
-        const token = await authStore.getIdToken()
-        if (!token) throw new Error('Not authenticated')
+        const token = await authStore.getIdToken();
+        if (!token) throw new Error('Not authenticated');
 
         const response = await $fetch<{ event: Event }>(`/api/events/${slug}`, {
           method: 'PATCH',
           body: data,
-          headers: { Authorization: `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         if (this.currentEvent?.slug === slug) {
-          this.currentEvent = { ...this.currentEvent, ...response.event }
+          this.currentEvent = { ...this.currentEvent, ...response.event };
         }
 
-        const idx = this.events.findIndex(e => e.slug === slug)
+        const idx = this.events.findIndex((e) => e.slug === slug);
         if (idx !== -1) {
-          this.events[idx] = { ...this.events[idx], ...response.event }
+          this.events[idx] = { ...this.events[idx], ...response.event };
         }
 
-        return response.event
+        return response.event;
       } catch (error) {
-        console.error('Failed to update event:', error)
-        throw error
+        console.error('Failed to update event:', error);
+        throw error;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     async deleteEvent(slug: string) {
-      const authStore = useAuthStore()
-      this.loading = true
+      const authStore = useAuthStore();
+      this.loading = true;
 
       try {
-        const token = await authStore.getIdToken()
-        if (!token) throw new Error('Not authenticated')
+        const token = await authStore.getIdToken();
+        if (!token) throw new Error('Not authenticated');
 
         await $fetch(`/api/events/${slug}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        this.events = this.events.filter(e => e.slug !== slug)
+        this.events = this.events.filter((e) => e.slug !== slug);
         if (this.currentEvent?.slug === slug) {
-          this.currentEvent = null
+          this.currentEvent = null;
         }
       } catch (error) {
-        console.error('Failed to delete event:', error)
-        throw error
+        console.error('Failed to delete event:', error);
+        throw error;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     async submitRsvp(slug: string, status: RsvpStatus, comment?: string) {
-      const authStore = useAuthStore()
+      const authStore = useAuthStore();
 
       try {
-        const token = await authStore.getIdToken()
-        if (!token) throw new Error('Not authenticated')
+        const token = await authStore.getIdToken();
+        if (!token) throw new Error('Not authenticated');
 
-        const response = await $fetch<{ rsvp: { status: RsvpStatus; comment: string | null }, rsvpCount: number }>(`/api/events/${slug}/rsvp`, {
+        const response = await $fetch<{
+          rsvp: { status: RsvpStatus; comment: string | null };
+          rsvpCount: number;
+        }>(`/api/events/${slug}/rsvp`, {
           method: 'POST',
           body: { status, comment },
-          headers: { Authorization: `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         if (this.currentEvent?.slug === slug) {
           this.currentEvent.userRsvp = {
             status: response.rsvp.status,
-            comment: response.rsvp.comment
-          }
-          this.currentEvent.rsvpCount = response.rsvpCount
+            comment: response.rsvp.comment,
+          };
+          this.currentEvent.rsvpCount = response.rsvpCount;
 
           // Re-fetch to get updated rsvps list
-          await this.fetchEvent(slug)
+          await this.fetchEvent(slug);
         }
 
-        return response
+        return response;
       } catch (error) {
-        console.error('Failed to submit RSVP:', error)
-        throw error
+        console.error('Failed to submit RSVP:', error);
+        throw error;
       }
     },
 
     async fetchRsvps(slug: string) {
-      const authStore = useAuthStore()
+      const authStore = useAuthStore();
 
       try {
-        const token = await authStore.getIdToken()
-        if (!token) throw new Error('Not authenticated')
+        const token = await authStore.getIdToken();
+        if (!token) throw new Error('Not authenticated');
 
-        const response = await $fetch<{ rsvps: RsvpDetail[] }>(`/api/events/${slug}/rsvps`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        const response = await $fetch<{ rsvps: RsvpDetail[] }>(
+          `/api/events/${slug}/rsvps`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-        this.rsvps = response.rsvps
-        return response.rsvps
+        this.rsvps = response.rsvps;
+        return response.rsvps;
       } catch (error) {
-        console.error('Failed to fetch RSVPs:', error)
-        throw error
+        console.error('Failed to fetch RSVPs:', error);
+        throw error;
       }
     },
 
     clearCurrentEvent() {
-      this.currentEvent = null
-      this.rsvps = []
+      this.currentEvent = null;
+      this.rsvps = [];
     },
 
     async getWaitlistNotifyData(slug: string) {
-      const authStore = useAuthStore()
+      const authStore = useAuthStore();
 
       try {
-        const token = await authStore.getIdToken()
-        if (!token) throw new Error('Not authenticated')
+        const token = await authStore.getIdToken();
+        if (!token) throw new Error('Not authenticated');
 
         const response = await $fetch<{
-          phones: string[]
-          message: string
-          smsUrl: string
-          waitlistCount: number
+          phones: string[];
+          message: string;
+          smsUrl: string;
+          waitlistCount: number;
         }>(`/api/events/${slug}/notify-waitlist`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        return response
+        return response;
       } catch (error) {
-        console.error('Failed to get waitlist notify data:', error)
-        throw error
+        console.error('Failed to get waitlist notify data:', error);
+        throw error;
       }
     },
 
     async getDropOutMessageData(slug: string) {
-      const authStore = useAuthStore()
+      const authStore = useAuthStore();
 
       try {
-        const token = await authStore.getIdToken()
-        if (!token) throw new Error('Not authenticated')
+        const token = await authStore.getIdToken();
+        if (!token) throw new Error('Not authenticated');
 
         const response = await $fetch<{
-          phones: string[]
-          message: string
-          smsUrl: string
-          hasWaitlist: boolean
-          confirmedCount: number
-          waitlistCount: number
+          phones: string[];
+          message: string;
+          smsUrl: string;
+          hasWaitlist: boolean;
+          confirmedCount: number;
+          waitlistCount: number;
         }>(`/api/events/${slug}/drop-out-message`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        return response
+        return response;
       } catch (error) {
-        console.error('Failed to get drop out message data:', error)
-        throw error
+        console.error('Failed to get drop out message data:', error);
+        throw error;
       }
     },
 
@@ -347,19 +365,19 @@ export const useEventsStore = defineStore('events', {
      * Apply a real-time event update from WebSocket
      */
     applyEventUpdate(payload: {
-      eventSlug: string
+      eventSlug: string;
       event: {
-        location: string
-        datetime: string
-        endDatetime: string
-        minPlayers: number
-        maxPlayers: number
-        description: string | null
-        allowSharing: boolean
-      }
+        location: string;
+        datetime: string;
+        endDatetime: string;
+        minPlayers: number;
+        maxPlayers: number;
+        description: string | null;
+        allowSharing: boolean;
+      };
     }) {
       if (!this.currentEvent || this.currentEvent.slug !== payload.eventSlug) {
-        return
+        return;
       }
 
       // Update the current event with new data
@@ -371,40 +389,40 @@ export const useEventsStore = defineStore('events', {
         minPlayers: payload.event.minPlayers,
         maxPlayers: payload.event.maxPlayers,
         description: payload.event.description || undefined,
-        allowSharing: payload.event.allowSharing
-      }
+        allowSharing: payload.event.allowSharing,
+      };
     },
 
     /**
      * Apply a real-time RSVP update from WebSocket
      */
     applyRsvpUpdate(payload: {
-      eventSlug: string
+      eventSlug: string;
       rsvp: {
-        id: string
-        userId: string | null
-        status: RsvpStatus
-        comment: string | null
-        name: string
-      }
+        id: string;
+        userId: string | null;
+        status: RsvpStatus;
+        comment: string | null;
+        name: string;
+      };
       counts: {
-        rsvpCount: number
-        waitlistCount: number
-      }
+        rsvpCount: number;
+        waitlistCount: number;
+      };
     }) {
       if (!this.currentEvent || this.currentEvent.slug !== payload.eventSlug) {
-        return
+        return;
       }
 
       // Update counts
-      this.currentEvent.rsvpCount = payload.counts.rsvpCount
-      this.currentEvent.waitlistCount = payload.counts.waitlistCount
+      this.currentEvent.rsvpCount = payload.counts.rsvpCount;
+      this.currentEvent.waitlistCount = payload.counts.waitlistCount;
 
       // Update or add RSVP in the list
       if (this.currentEvent.rsvps) {
         const existingIndex = this.currentEvent.rsvps.findIndex(
-          r => r.id === payload.rsvp.id || r.userId === payload.rsvp.userId
-        )
+          (r) => r.id === payload.rsvp.id || r.userId === payload.rsvp.userId
+        );
 
         const updatedRsvp: EventRsvp = {
           id: payload.rsvp.id,
@@ -413,30 +431,30 @@ export const useEventsStore = defineStore('events', {
           comment: payload.rsvp.comment,
           name: payload.rsvp.name,
           isUser: false, // Will be corrected by the view
-          updatedAt: new Date().toISOString()
-        }
+          updatedAt: new Date().toISOString(),
+        };
 
         if (existingIndex !== -1) {
           // Update existing RSVP
           this.currentEvent.rsvps[existingIndex] = {
             ...this.currentEvent.rsvps[existingIndex],
-            ...updatedRsvp
-          }
+            ...updatedRsvp,
+          };
         } else {
           // Add new RSVP
-          this.currentEvent.rsvps.push(updatedRsvp)
+          this.currentEvent.rsvps.push(updatedRsvp);
         }
       }
 
       // Update userRsvp if this is the current user's RSVP
-      const authStore = useAuthStore()
+      const authStore = useAuthStore();
       if (authStore.user?.id === payload.rsvp.userId) {
         this.currentEvent.userRsvp = {
           status: payload.rsvp.status,
           comment: payload.rsvp.comment,
-          updatedAt: new Date().toISOString()
-        }
+          updatedAt: new Date().toISOString(),
+        };
       }
-    }
-  }
-})
+    },
+  },
+});
