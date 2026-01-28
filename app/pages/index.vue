@@ -1,5 +1,14 @@
+<script setup lang="ts">
+const authStore = useAuthStore()
+
+useSeoMeta({
+  title: 'RSVP - Create and Join Events',
+  description: 'Create events people can RSVP to, or RSVP to events others created.'
+})
+</script>
+
 <template>
-  <div class="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-4 py-12">
+  <div class="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center py-12">
     <!-- Simple tagline -->
     <p class="text-center text-lg text-gray-600 dark:text-gray-400 max-w-md mb-12">
       Create events people can RSVP to, or RSVP to events others created.
@@ -26,12 +35,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-const authStore = useAuthStore()
-
-useSeoMeta({
-  title: 'RSVP - Create and Join Events',
-  description: 'Create events people can RSVP to, or RSVP to events others created.'
-})
-</script>

@@ -12,6 +12,7 @@ export default defineEventHandler(async (event) => {
     user: {
       id: auth.user.id,
       name: auth.user.name,
+      nickname: auth.user.nickname,
       phone: auth.user.phone
     }
   }

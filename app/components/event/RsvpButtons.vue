@@ -1,3 +1,15 @@
+<script setup lang="ts">
+defineProps<{
+  status: 'IN' | 'OUT' | null
+  full: boolean
+  loading: boolean
+}>()
+
+const emit = defineEmits<{
+  rsvp: [status: 'IN' | 'OUT']
+}>()
+</script>
+
 <template>
   <div class="grid grid-cols-2 gap-4">
     <UButton
@@ -36,15 +48,3 @@
     </UButton>
   </div>
 </template>
-
-<script setup lang="ts">
-defineProps<{
-  status: 'IN' | 'OUT' | null
-  full: boolean
-  loading: boolean
-}>()
-
-const emit = defineEmits<{
-  rsvp: [status: 'IN' | 'OUT']
-}>()
-</script>

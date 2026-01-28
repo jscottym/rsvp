@@ -1,5 +1,71 @@
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['auth']
+})
+
+const groupsStore = useGroupsStore()
+const toast = useToast()
+
+const loading = ref(true)
+const showCreateModal = ref(false)
+const creating = ref(false)
+const groups = computed(() => groupsStore.groups)
+
+const newGroup = reactive({
+  name: '',
+  description: '',
+  visibility: 'PRIVATE' as 'PRIVATE' | 'PUBLIC'
+})
+
+const visibilityOptions = [
+  { value: 'PRIVATE', label: 'Private', description: 'Only you can see and manage this group' },
+  { value: 'PUBLIC', label: 'Public', description: 'Others can discover and request to join' }
+]
+
+onMounted(async () => {
+  try {
+    await groupsStore.fetchMyGroups()
+  } finally {
+    loading.value = false
+  }
+})
+
+async function createGroup() {
+  creating.value = true
+  try {
+    await groupsStore.createGroup({
+      name: newGroup.name.trim(),
+      description: newGroup.description.trim() || undefined,
+      visibility: newGroup.visibility
+    })
+
+    toast.add({
+      title: 'Group created!',
+      color: 'success'
+    })
+
+    showCreateModal.value = false
+    newGroup.name = ''
+    newGroup.description = ''
+    newGroup.visibility = 'PRIVATE'
+  } catch (e: any) {
+    toast.add({
+      title: 'Error',
+      description: e.data?.message || 'Failed to create group',
+      color: 'error'
+    })
+  } finally {
+    creating.value = false
+  }
+}
+
+useSeoMeta({
+  title: 'My Groups - Pickup Sports'
+})
+</script>
+
 <template>
-  <div class="max-w-2xl mx-auto px-4 py-8">
+  <div class="max-w-2xl mx-auto py-8">
     <div class="flex items-center justify-between mb-8">
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">My Groups</h1>
       <div class="flex gap-2">
@@ -110,69 +176,3 @@
     </UModal>
   </div>
 </template>
-
-<script setup lang="ts">
-definePageMeta({
-  middleware: ['auth']
-})
-
-const groupsStore = useGroupsStore()
-const toast = useToast()
-
-const loading = ref(true)
-const showCreateModal = ref(false)
-const creating = ref(false)
-const groups = computed(() => groupsStore.groups)
-
-const newGroup = reactive({
-  name: '',
-  description: '',
-  visibility: 'PRIVATE' as 'PRIVATE' | 'PUBLIC'
-})
-
-const visibilityOptions = [
-  { value: 'PRIVATE', label: 'Private', description: 'Only you can see and manage this group' },
-  { value: 'PUBLIC', label: 'Public', description: 'Others can discover and request to join' }
-]
-
-onMounted(async () => {
-  try {
-    await groupsStore.fetchMyGroups()
-  } finally {
-    loading.value = false
-  }
-})
-
-async function createGroup() {
-  creating.value = true
-  try {
-    await groupsStore.createGroup({
-      name: newGroup.name.trim(),
-      description: newGroup.description.trim() || undefined,
-      visibility: newGroup.visibility
-    })
-
-    toast.add({
-      title: 'Group created!',
-      color: 'success'
-    })
-
-    showCreateModal.value = false
-    newGroup.name = ''
-    newGroup.description = ''
-    newGroup.visibility = 'PRIVATE'
-  } catch (e: any) {
-    toast.add({
-      title: 'Error',
-      description: e.data?.message || 'Failed to create group',
-      color: 'error'
-    })
-  } finally {
-    creating.value = false
-  }
-}
-
-useSeoMeta({
-  title: 'My Groups - Pickup Sports'
-})
-</script>

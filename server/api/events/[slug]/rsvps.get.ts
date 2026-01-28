@@ -59,6 +59,7 @@ export default defineEventHandler(async (event) => {
     rsvps: rsvps.map(r => ({
       id: r.id,
       status: r.status,
+      comment: r.comment,
       name: r.user?.name || r.guestName || 'Anonymous',
       phone: r.user?.phone || r.guestPhone || null,
       isUser: !!r.user,

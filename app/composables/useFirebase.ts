@@ -5,6 +5,8 @@ import {
   signInWithPhoneNumber,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  browserLocalPersistence,
+  setPersistence,
   type Auth,
   type ConfirmationResult,
   type User as FirebaseUser
@@ -38,6 +40,8 @@ export function useFirebase() {
   const getFirebaseAuth = () => {
     if (!auth) {
       auth = getAuth(getFirebaseApp())
+      // Ensure session persists across browser restarts
+      setPersistence(auth, browserLocalPersistence).catch(console.error)
     }
     return auth
   }

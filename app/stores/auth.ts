@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 interface User {
   id: string
   name: string
+  nickname: string | null
   phone: string
 }
 
@@ -100,6 +101,27 @@ export const useAuthStore = defineStore('auth', {
     async getIdToken(): Promise<string | null> {
       const { getIdToken } = usePhoneAuth()
       return getIdToken()
+    },
+
+    async updateProfile(data: { name?: string; nickname?: string }) {
+      const token = await this.getIdToken()
+      if (!token) return { success: false, error: 'Not authenticated' }
+
+      try {
+        const response = await $fetch<{ user: User }>('/api/auth/profile', {
+          method: 'PATCH',
+          body: data,
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        this.user = response.user
+        return { success: true }
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.data?.message || 'Failed to update profile'
+        }
+      }
     }
   }
 })

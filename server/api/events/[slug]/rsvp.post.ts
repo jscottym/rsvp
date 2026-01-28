@@ -2,7 +2,8 @@ import { z } from 'zod'
 import prisma from '../../../utils/db'
 
 const rsvpSchema = z.object({
-  status: z.enum(['IN', 'OUT'])
+  status: z.enum(['IN', 'OUT', 'MAYBE', 'IN_IF', 'WAITLIST']),
+  comment: z.string().max(500).optional()
 })
 
 export default defineEventHandler(async (event) => {
@@ -54,9 +55,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { status } = parsed.data
+  const { status, comment } = parsed.data
 
-  // Check capacity if RSVPing IN
+  // Check capacity if RSVPing IN (skip for WAITLIST - it's for full events)
   if (status === 'IN') {
     const existingRsvp = await prisma.rsvp.findUnique({
       where: {
@@ -67,8 +68,8 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    // Only check capacity if this is a new RSVP or changing from OUT to IN
-    if (!existingRsvp || existingRsvp.status === 'OUT') {
+    // Only check capacity if this is a new RSVP or changing to IN from another status
+    if (!existingRsvp || existingRsvp.status !== 'IN') {
       if (existingEvent._count.rsvps >= existingEvent.maxPlayers) {
         throw createError({
           statusCode: 400,
@@ -89,26 +90,38 @@ export default defineEventHandler(async (event) => {
     create: {
       eventId: existingEvent.id,
       userId: auth.user.id,
-      status
+      status,
+      comment: comment || null
     },
     update: {
-      status
+      status,
+      comment: comment || null
     }
   })
 
-  // Get updated count
-  const updatedCount = await prisma.rsvp.count({
-    where: {
-      eventId: existingEvent.id,
-      status: 'IN'
-    }
-  })
+  // Get updated counts
+  const [updatedCount, waitlistCount] = await Promise.all([
+    prisma.rsvp.count({
+      where: {
+        eventId: existingEvent.id,
+        status: 'IN'
+      }
+    }),
+    prisma.rsvp.count({
+      where: {
+        eventId: existingEvent.id,
+        status: 'WAITLIST'
+      }
+    })
+  ])
 
   return {
     rsvp: {
       id: rsvp.id,
-      status: rsvp.status
+      status: rsvp.status,
+      comment: rsvp.comment
     },
-    rsvpCount: updatedCount
+    rsvpCount: updatedCount,
+    waitlistCount
   }
 })

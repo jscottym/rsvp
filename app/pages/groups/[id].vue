@@ -1,5 +1,112 @@
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['auth']
+})
+
+const route = useRoute()
+const groupsStore = useGroupsStore()
+const toast = useToast()
+
+const groupId = computed(() => route.params.id as string)
+const loading = ref(true)
+const showRequestsModal = ref(false)
+const processingId = ref<string | null>(null)
+
+const group = computed(() => groupsStore.currentGroup)
+const pendingRequests = computed(() => groupsStore.pendingRequests)
+
+const menuItems = [
+  [{
+    label: 'Edit Group',
+    icon: 'i-heroicons-pencil-square',
+    onSelect: () => {
+      toast.add({ title: 'Coming soon!', color: 'info' })
+    }
+  }]
+]
+
+onMounted(async () => {
+  try {
+    await groupsStore.fetchGroup(groupId.value)
+    if (group.value?.isOwner && group.value.pendingRequestCount && group.value.pendingRequestCount > 0) {
+      await groupsStore.fetchPendingRequests(groupId.value)
+    }
+  } finally {
+    loading.value = false
+  }
+})
+
+onUnmounted(() => {
+  groupsStore.clearCurrentGroup()
+})
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function formatPhone(phone: string) {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+  return phone
+}
+
+async function copyPhones() {
+  if (!group.value?.members) return
+
+  const phones = group.value.members.map(m => m.phone).join(', ')
+  try {
+    await navigator.clipboard.writeText(phones)
+    toast.add({
+      title: 'Phones copied!',
+      description: `${group.value.members.length} phone numbers copied`,
+      color: 'success'
+    })
+  } catch (e) {
+    toast.add({ title: 'Failed to copy', color: 'error' })
+  }
+}
+
+async function handleRequest(requestId: string, action: 'approve' | 'reject') {
+  processingId.value = requestId
+  try {
+    await groupsStore.handleRequest(groupId.value, requestId, action)
+    toast.add({
+      title: action === 'approve' ? 'Request approved!' : 'Request rejected',
+      color: action === 'approve' ? 'success' : 'neutral'
+    })
+
+    // Refresh group data if approved
+    if (action === 'approve') {
+      await groupsStore.fetchGroup(groupId.value)
+    }
+  } catch (e: any) {
+    toast.add({
+      title: 'Error',
+      description: e.data?.message || 'Failed to process request',
+      color: 'error'
+    })
+  } finally {
+    processingId.value = null
+  }
+}
+
+useSeoMeta({
+  title: () => group.value ? `${group.value.name} - Groups` : 'Group'
+})
+</script>
+
 <template>
-  <div class="max-w-2xl mx-auto px-4 py-8">
+  <div class="max-w-2xl mx-auto py-8">
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-12">
       <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-gray-400" />
@@ -35,9 +142,9 @@
               Owned by {{ group.owner?.name }}
             </p>
           </div>
-          <UDropdown v-if="group.isOwner" :items="menuItems">
+          <UDropdownMenu v-if="group.isOwner" :items="menuItems">
             <UButton color="neutral" variant="ghost" icon="i-heroicons-ellipsis-vertical" />
-          </UDropdown>
+          </UDropdownMenu>
         </div>
       </div>
 
@@ -153,110 +260,3 @@
     </UModal>
   </div>
 </template>
-
-<script setup lang="ts">
-definePageMeta({
-  middleware: ['auth']
-})
-
-const route = useRoute()
-const groupsStore = useGroupsStore()
-const toast = useToast()
-
-const groupId = computed(() => route.params.id as string)
-const loading = ref(true)
-const showRequestsModal = ref(false)
-const processingId = ref<string | null>(null)
-
-const group = computed(() => groupsStore.currentGroup)
-const pendingRequests = computed(() => groupsStore.pendingRequests)
-
-const menuItems = [
-  [{
-    label: 'Edit Group',
-    icon: 'i-heroicons-pencil-square',
-    click: () => {
-      toast.add({ title: 'Coming soon!', color: 'info' })
-    }
-  }]
-]
-
-onMounted(async () => {
-  try {
-    await groupsStore.fetchGroup(groupId.value)
-    if (group.value?.isOwner && group.value.pendingRequestCount && group.value.pendingRequestCount > 0) {
-      await groupsStore.fetchPendingRequests(groupId.value)
-    }
-  } finally {
-    loading.value = false
-  }
-})
-
-onUnmounted(() => {
-  groupsStore.clearCurrentGroup()
-})
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-function formatPhone(phone: string) {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length === 11 && digits.startsWith('1')) {
-    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
-  }
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
-  }
-  return phone
-}
-
-async function copyPhones() {
-  if (!group.value?.members) return
-
-  const phones = group.value.members.map(m => m.phone).join(', ')
-  try {
-    await navigator.clipboard.writeText(phones)
-    toast.add({
-      title: 'Phones copied!',
-      description: `${group.value.members.length} phone numbers copied`,
-      color: 'success'
-    })
-  } catch (e) {
-    toast.add({ title: 'Failed to copy', color: 'error' })
-  }
-}
-
-async function handleRequest(requestId: string, action: 'approve' | 'reject') {
-  processingId.value = requestId
-  try {
-    await groupsStore.handleRequest(groupId.value, requestId, action)
-    toast.add({
-      title: action === 'approve' ? 'Request approved!' : 'Request rejected',
-      color: action === 'approve' ? 'success' : 'neutral'
-    })
-
-    // Refresh group data if approved
-    if (action === 'approve') {
-      await groupsStore.fetchGroup(groupId.value)
-    }
-  } catch (e: any) {
-    toast.add({
-      title: 'Error',
-      description: e.data?.message || 'Failed to process request',
-      color: 'error'
-    })
-  } finally {
-    processingId.value = null
-  }
-}
-
-useSeoMeta({
-  title: () => group.value ? `${group.value.name} - Groups` : 'Group'
-})
-</script>

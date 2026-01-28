@@ -1,115 +1,3 @@
-<template>
-  <UModal v-model:open="isOpen" title="Sign In" description="Verify your phone number to continue">
-    <template #body>
-      <div class="space-y-6">
-        <!-- Step 1: Phone Number -->
-        <div v-if="step === 'phone'">
-          <div id="recaptcha-container"></div>
-          <UFormField label="Phone Number">
-          <UInput
-            v-model="phone"
-            type="tel"
-            placeholder="(555) 123-4567"
-            size="lg"
-            :disabled="loading"
-            @input="handlePhoneInput"
-            @keyup.enter="sendCode"
-          />
-          </UFormField>
-          <p class="mt-2 text-sm text-gray-500">
-            We'll send a verification code via SMS
-          </p>
-        </div>
-
-        <!-- Step 2: Verification Code -->
-        <div v-else-if="step === 'code'">
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Enter the 6-digit code sent to {{ formatPhone(phone) }}
-          </p>
-          <UPinInput
-            :model-value="code"
-            :length="6"
-            size="lg"
-            otp
-            :disabled="loading"
-            @update:model-value="(val: any) => code = Array.isArray(val) ? val.join('') : val"
-            @complete="verifyCode"
-          />
-          <UButton
-            variant="link"
-            size="sm"
-            class="mt-4"
-            @click="step = 'phone'"
-          >
-            Use a different number
-          </UButton>
-        </div>
-
-        <!-- Step 3: Name (for new users) -->
-        <div v-else-if="step === 'name'">
-          <UFormField label="Your Name">
-            <UInput
-              v-model="name"
-              placeholder="Enter your name"
-              size="lg"
-              :disabled="loading"
-              @keyup.enter="completeName"
-            />
-          </UFormField>
-          <p class="mt-2 text-sm text-gray-500">
-            This will be shown to other players
-          </p>
-        </div>
-
-        <!-- Error message -->
-        <UAlert
-          v-if="error"
-          color="error"
-          variant="soft"
-          :title="error"
-          icon="i-heroicons-exclamation-circle"
-        />
-      </div>
-    </template>
-
-    <template #footer>
-      <div class="flex justify-end gap-3">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          label="Cancel"
-          :disabled="loading"
-          @click="isOpen = false"
-        />
-        <UButton
-          v-if="step === 'phone'"
-          color="primary"
-          :label="recaptchaReady ? 'Send Code' : 'Initializing...'"
-          :loading="loading"
-          :disabled="!isValidPhone || !recaptchaReady"
-          @click="sendCode"
-        />
-        <UButton
-          v-else-if="step === 'code'"
-          color="primary"
-          label="Verify"
-          :loading="loading"
-          :disabled="code.length !== 6"
-          @click="verifyCode"
-        />
-        <UButton
-          v-else-if="step === 'name'"
-          color="primary"
-          label="Continue"
-          :loading="loading"
-          :disabled="!name.trim()"
-          @click="completeName"
-        />
-      </div>
-    </template>
-  </UModal>
-</template>
-
 <script setup lang="ts">
 import { useLocalStorage } from '@vueuse/core'
 
@@ -136,11 +24,6 @@ const recaptchaReady = ref(false)
 
 const step = ref<'phone' | 'code' | 'name'>('phone')
 const phoneStorage = useLocalStorage('pickup-sports-last-phone', '')
-const phone = ref(phoneStorage.value)
-const code = ref('')
-const name = ref('')
-const error = ref<string | null>(null)
-const firebaseUser = ref<any>(null)
 
 function formatPhoneInput(input: string): string {
   const digits = input.replace(/\D/g, '')
@@ -151,15 +34,23 @@ function formatPhoneInput(input: string): string {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
 }
 
-function handlePhoneInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const formatted = formatPhoneInput(target.value)
+const phone = ref(formatPhoneInput(phoneStorage.value || ''))
+const codeParts = ref<any[]>([])
+const code = computed(() => codeParts.value.join(''))
+const pinInputRef = ref<HTMLElement | null>(null)
+const name = ref('')
+const error = ref<string | null>(null)
+const firebaseUser = ref<any>(null)
+
+watch(phone, (newValue) => {
+  phoneStorage.value = newValue
+})
+
+function handlePhoneInput(value: string) {
+  const formatted = formatPhoneInput(value)
   phone.value = formatted
 }
 
-watch(phone, (value) => {
-  phoneStorage.value = value
-})
 
 const isValidPhone = computed(() => {
   const digits = phone.value.replace(/\D/g, '')
@@ -199,7 +90,7 @@ watch(isOpen, async (val) => {
     resetState()
     recaptchaReady.value = false
     step.value = 'phone'
-    code.value = ''
+    codeParts.value = []
     name.value = ''
     error.value = null
   }
@@ -224,6 +115,11 @@ async function sendCode() {
   const success = await sendVerificationCode(phone.value)
   if (success) {
     step.value = 'code'
+    codeParts.value = Array.from({ length: 6 }, () => '')
+    // Focus the PIN input after DOM updates
+    await nextTick()
+    const firstInput = pinInputRef.value?.querySelector('input')
+    firstInput?.focus()
   } else {
     // Re-initialize reCAPTCHA for retry
     await initRecaptcha()
@@ -231,6 +127,7 @@ async function sendCode() {
 }
 
 async function verifyCode() {
+  if (loading.value) return
   error.value = null
   const user = await verifyOtp(code.value)
 
@@ -280,3 +177,122 @@ function completeAuth() {
   }
 }
 </script>
+
+<template>
+  <UModal v-model:open="isOpen" title="Sign In" description="Verify your phone number to continue">
+    <template #body>
+      <div class="space-y-6">
+        <!-- Step 1: Phone Number -->
+        <div v-if="step === 'phone'">
+          <div id="recaptcha-container"></div>
+          <UFormField label="Phone Number">
+          <UInput
+            :model-value="phone"
+            type="tel"
+            placeholder="(555) 123-4567"
+            size="xl"
+            :disabled="loading"
+            @update:model-value="handlePhoneInput"
+            @keyup.enter="sendCode"
+          />
+          </UFormField>
+          <p class="mt-2 text-sm text-gray-500">
+            We'll send a verification code via SMS
+          </p>
+        </div>
+
+        <!-- Step 2: Verification Code -->
+        <div v-else-if="step === 'code'">
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Enter the 6-digit code sent to {{ formatPhone(phone) }}
+          </p>
+          <div ref="pinInputRef">
+            <UPinInput
+              v-model="codeParts"
+              :length="6"
+              size="xl"
+              otp
+              type="number"
+              :disabled="loading"
+              @complete="verifyCode"
+              :ui="{ root: 'justify-center gap-2 sm:gap-3', base: 'h-14 w-10 sm:h-16 sm:w-14 text-xl sm:text-2xl font-semibold' }"
+            />
+          </div>
+          <UButton
+            variant="link"
+            size="lg"
+            class="mt-4"
+            @click="step = 'phone'"
+          >
+            Use a different number
+          </UButton>
+        </div>
+
+        <!-- Step 3: Name (for new users) -->
+        <div v-else-if="step === 'name'">
+          <UFormField label="Your Name">
+            <UInput
+              v-model="name"
+              placeholder="Enter your name"
+              size="xl"
+              :disabled="loading"
+              @keyup.enter="completeName"
+            />
+          </UFormField>
+          <p class="mt-2 text-sm text-gray-500">
+            This will be shown to other players
+          </p>
+        </div>
+
+        <!-- Error message -->
+        <UAlert
+          v-if="error"
+          color="error"
+          variant="soft"
+          :title="error"
+          icon="i-heroicons-exclamation-circle"
+        />
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex justify-end gap-3">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          size="xl"
+          label="Cancel"
+          :disabled="loading"
+          @click="isOpen = false"
+        />
+        <UButton
+          v-if="step === 'phone'"
+          color="primary"
+          size="xl"
+          :label="recaptchaReady ? 'Send Code' : 'Initializing...'"
+          :loading="loading"
+          :disabled="!isValidPhone || !recaptchaReady"
+          @click="sendCode"
+        />
+        <UButton
+          v-else-if="step === 'code'"
+          color="primary"
+          size="xl"
+          label="Verify"
+          :loading="loading"
+          :disabled="code.length !== 6"
+          @click="verifyCode"
+        />
+        <UButton
+          v-else-if="step === 'name'"
+          color="primary"
+          size="xl"
+          label="Continue"
+          :loading="loading"
+          :disabled="!name.trim()"
+          @click="completeName"
+        />
+      </div>
+    </template>
+  </UModal>
+</template>

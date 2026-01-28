@@ -20,7 +20,6 @@ export default defineEventHandler(async (event) => {
         }
       },
       rsvps: {
-        where: { status: 'IN' },
         include: {
           user: {
             select: {
@@ -28,6 +27,9 @@ export default defineEventHandler(async (event) => {
               name: true
             }
           }
+        },
+        orderBy: {
+          createdAt: 'asc'
         }
       }
     }
@@ -43,8 +45,8 @@ export default defineEventHandler(async (event) => {
   const auth = event.context.auth
   const isOrganizer = auth?.user?.id === eventData.organizerId
 
-  // Get user's RSVP status if authenticated
-  let userRsvp = null
+  // Get user's RSVP if authenticated
+  let userRsvp: { status: string; comment: string | null; createdAt: string; updatedAt: string } | null = null
   if (auth?.user) {
     const rsvp = await prisma.rsvp.findUnique({
       where: {
@@ -54,8 +56,19 @@ export default defineEventHandler(async (event) => {
         }
       }
     })
-    userRsvp = rsvp?.status || null
+    if (rsvp) {
+      userRsvp = {
+        status: rsvp.status,
+        comment: rsvp.comment,
+        createdAt: rsvp.createdAt.toISOString(),
+        updatedAt: rsvp.updatedAt.toISOString()
+      }
+    }
   }
+
+  // Count IN responses for capacity and WAITLIST for waitlist count
+  const inCount = eventData.rsvps.filter(r => r.status === 'IN').length
+  const waitlistCount = eventData.rsvps.filter(r => r.status === 'WAITLIST').length
 
   return {
     event: {
@@ -75,9 +88,12 @@ export default defineEventHandler(async (event) => {
         id: eventData.organizer.id,
         name: eventData.organizer.name
       },
-      rsvpCount: eventData.rsvps.length,
-      attendees: eventData.rsvps.map(r => ({
+      rsvpCount: inCount,
+      waitlistCount,
+      rsvps: eventData.rsvps.map(r => ({
         id: r.id,
+        status: r.status,
+        comment: r.comment,
         name: r.user?.name || r.guestName || 'Anonymous',
         isUser: !!r.user
       })),

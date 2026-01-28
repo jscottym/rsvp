@@ -72,6 +72,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Create event and auto-RSVP the organizer as "IN"
   const newEvent = await prisma.event.create({
     data: {
       slug,
@@ -85,7 +86,14 @@ export default defineEventHandler(async (event) => {
       maxPlayers: data.maxPlayers,
       allowSharing: data.allowSharing,
       sharingNote: data.sharingNote,
-      organizerId: auth.user.id
+      organizerId: auth.user.id,
+      // Auto-RSVP the organizer
+      rsvps: {
+        create: {
+          userId: auth.user.id,
+          status: 'IN'
+        }
+      }
     }
   })
 

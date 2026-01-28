@@ -1,5 +1,59 @@
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['auth']
+})
+
+const eventsStore = useEventsStore()
+
+const loading = ref(true)
+const events = computed(() => eventsStore.events)
+
+onMounted(async () => {
+  try {
+    await eventsStore.fetchMyEvents()
+  } finally {
+    loading.value = false
+  }
+})
+
+function formatSport(sport: string) {
+  return sport.charAt(0).toUpperCase() + sport.slice(1)
+}
+
+function formatDate(datetime: string) {
+  return new Date(datetime).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+function formatTime(datetime: string) {
+  return new Date(datetime).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
+function formatTimeRange(start: string, end?: string) {
+  const startTime = formatTime(start)
+  if (!end) return startTime
+  const endTime = formatTime(end)
+  return `${startTime} – ${endTime}`
+}
+
+function isPast(datetime: string) {
+  return new Date(datetime) < new Date()
+}
+
+useSeoMeta({
+  title: 'My Events - Pickup Sports'
+})
+</script>
+
 <template>
-  <div class="max-w-2xl mx-auto px-4 py-8">
+  <div class="max-w-2xl mx-auto py-8">
     <div class="flex items-center justify-between mb-8">
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">My Events</h1>
       <UButton
@@ -60,57 +114,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-definePageMeta({
-  middleware: ['auth']
-})
-
-const eventsStore = useEventsStore()
-
-const loading = ref(true)
-const events = computed(() => eventsStore.events)
-
-onMounted(async () => {
-  try {
-    await eventsStore.fetchMyEvents()
-  } finally {
-    loading.value = false
-  }
-})
-
-function formatSport(sport: string) {
-  return sport.charAt(0).toUpperCase() + sport.slice(1)
-}
-
-function formatDate(datetime: string) {
-  return new Date(datetime).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-  })
-}
-
-function formatTime(datetime: string) {
-  return new Date(datetime).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  })
-}
-
-function formatTimeRange(start: string, end?: string) {
-  const startTime = formatTime(start)
-  if (!end) return startTime
-  const endTime = formatTime(end)
-  return `${startTime} – ${endTime}`
-}
-
-function isPast(datetime: string) {
-  return new Date(datetime) < new Date()
-}
-
-useSeoMeta({
-  title: 'My Events - Pickup Sports'
-})
-</script>

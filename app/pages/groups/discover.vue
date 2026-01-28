@@ -1,5 +1,56 @@
+<script setup lang="ts">
+const groupsStore = useGroupsStore()
+const authStore = useAuthStore()
+const toast = useToast()
+
+const loading = ref(true)
+const joiningId = ref<string | null>(null)
+const showAuthModal = ref(false)
+const pendingJoinGroupId = ref<string | null>(null)
+
+const publicGroups = computed(() => groupsStore.publicGroups)
+
+onMounted(async () => {
+  try {
+    await groupsStore.fetchPublicGroups()
+  } finally {
+    loading.value = false
+  }
+})
+
+async function requestJoin(groupId: string) {
+  if (!authStore.isAuthenticated) {
+    pendingJoinGroupId.value = groupId
+    showAuthModal.value = true
+    return
+  }
+
+  joiningId.value = groupId
+  try {
+    await groupsStore.requestToJoin(groupId)
+    toast.add({
+      title: 'Request sent!',
+      description: 'The group owner will review your request.',
+      color: 'success'
+    })
+  } catch (e: any) {
+    toast.add({
+      title: 'Error',
+      description: e.data?.message || 'Failed to send request',
+      color: 'error'
+    })
+  } finally {
+    joiningId.value = null
+  }
+}
+
+useSeoMeta({
+  title: 'Discover Groups - Pickup Sports'
+})
+</script>
+
 <template>
-  <div class="max-w-2xl mx-auto px-4 py-8">
+  <div class="max-w-2xl mx-auto py-8">
     <div class="flex items-center justify-between mb-8">
       <div>
         <NuxtLink to="/groups" class="text-sm text-primary-500 hover:underline mb-1 inline-flex items-center gap-1">
@@ -69,54 +120,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-const groupsStore = useGroupsStore()
-const authStore = useAuthStore()
-const toast = useToast()
-
-const loading = ref(true)
-const joiningId = ref<string | null>(null)
-const showAuthModal = ref(false)
-const pendingJoinGroupId = ref<string | null>(null)
-
-const publicGroups = computed(() => groupsStore.publicGroups)
-
-onMounted(async () => {
-  try {
-    await groupsStore.fetchPublicGroups()
-  } finally {
-    loading.value = false
-  }
-})
-
-async function requestJoin(groupId: string) {
-  if (!authStore.isAuthenticated) {
-    pendingJoinGroupId.value = groupId
-    showAuthModal.value = true
-    return
-  }
-
-  joiningId.value = groupId
-  try {
-    await groupsStore.requestToJoin(groupId)
-    toast.add({
-      title: 'Request sent!',
-      description: 'The group owner will review your request.',
-      color: 'success'
-    })
-  } catch (e: any) {
-    toast.add({
-      title: 'Error',
-      description: e.data?.message || 'Failed to send request',
-      color: 'error'
-    })
-  } finally {
-    joiningId.value = null
-  }
-}
-
-useSeoMeta({
-  title: 'Discover Groups - Pickup Sports'
-})
-</script>
