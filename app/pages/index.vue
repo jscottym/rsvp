@@ -220,5 +220,4 @@ useSeoMeta({
       </div>
     </div>
   </div>
-
 </template>

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { useLocalStorage } from '@vueuse/core'
 
 interface User {
   id: string
@@ -13,9 +14,17 @@ interface AuthState {
   initialized: boolean
 }
 
+// Cache user in localStorage for instant loading
+const cachedUser = useLocalStorage<User | null>('pickup-sports-user', null, {
+  serializer: {
+    read: (v) => v ? JSON.parse(v) : null,
+    write: (v) => JSON.stringify(v)
+  }
+})
+
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
-    user: null,
+    user: cachedUser.value,
     loading: false,
     initialized: false
   }),
@@ -57,6 +66,7 @@ export const useAuthStore = defineStore('auth', {
         })
 
         this.user = response.user
+        cachedUser.value = response.user
         return { success: true }
       } catch (error: any) {
         console.error('Login error:', error)
@@ -79,9 +89,11 @@ export const useAuthStore = defineStore('auth', {
         })
 
         this.user = response.user
+        cachedUser.value = response.user
       } catch (error) {
         // User not found in DB, they'll need to complete registration
         this.user = null
+        cachedUser.value = null
       }
     },
 
@@ -95,6 +107,7 @@ export const useAuthStore = defineStore('auth', {
         console.error('Logout error:', error)
       } finally {
         this.user = null
+        cachedUser.value = null
       }
     },
 
@@ -115,6 +128,7 @@ export const useAuthStore = defineStore('auth', {
         })
 
         this.user = response.user
+        cachedUser.value = response.user
         return { success: true }
       } catch (error: any) {
         return {

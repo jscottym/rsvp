@@ -91,7 +91,7 @@ export function getRsvpStatusConfig(
   status: RsvpStatus | null,
   isOrganizer: boolean
 ): RsvpStatusConfig {
+  if (status) return RSVP_STATUS_CONFIG[status];
   if (isOrganizer) return RSVP_STATUS_CONFIG.ORGANIZER;
-  if (!status) return RSVP_STATUS_CONFIG.NONE;
-  return RSVP_STATUS_CONFIG[status];
+  return RSVP_STATUS_CONFIG.NONE;
 }

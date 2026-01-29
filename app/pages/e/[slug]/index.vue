@@ -13,7 +13,13 @@ const groupsStore = useGroupsStore();
 const toast = useToast();
 
 const slug = computed(() => route.params.slug as string);
+const modalOpen = ref(true);
 const showAuthModal = ref(false);
+
+function closeModal() {
+  modalOpen.value = false;
+  router.push('/');
+}
 const pendingRsvpStatus = ref<RsvpStatus | null>(null);
 const rsvpLoading = ref(false);
 const comment = ref('');
@@ -287,18 +293,24 @@ function getOrdinalSuffix(n: number): string {
   return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]!);
 }
 
-// Grace period: if user RSVP'd within last 60 seconds and no waitlist, they can silently drop out
-const isWithinGracePeriod = computed(() => {
-  if (!event.value?.userRsvp?.updatedAt) return false;
-  const updatedAt = new Date(event.value.userRsvp.updatedAt).getTime();
-  const now = Date.now();
-  return now - updatedAt < 60000;
+// Count of other players who are IN (not including current user)
+const otherPlayersInCount = computed(() => {
+  if (!event.value?.rsvps) return 0;
+  const inRsvps = event.value.rsvps.filter(r => r.status === 'IN');
+  // If user is in the list, subtract 1
+  const userIsIn = inRsvps.some(r => r.userId === authStore.user?.id);
+  return userIsIn ? inRsvps.length - 1 : inRsvps.length;
 });
 
-const canSilentDropOut = computed(
-  () => isWithinGracePeriod.value && !hasWaitlist.value
+// Show warning when dropping out if there's at least 1 other player
+const shouldShowDropOutWarning = computed(
+  () => isConfirmed.value && otherPlayersInCount.value > 0
 );
+
 const spotOpenedUp = computed(() => isOnWaitlist.value && !isFull.value);
+
+// Pending status change for after modal confirmation
+const pendingStatusChange = ref<RsvpStatus | null>(null);
 
 const IN_IF_PREFIX = "I'm in if ";
 
@@ -322,6 +334,13 @@ function hasUnsavedInIfComment() {
 
 async function selectStatus(status: RsvpStatus) {
   const previousStatus = selectedStatus.value;
+
+  // If switching away from IN and there are other players, show warning
+  if (isConfirmed.value && status !== 'IN' && shouldShowDropOutWarning.value) {
+    pendingStatusChange.value = status;
+    showDropOutModal.value = true;
+    return;
+  }
 
   // Clear comment if leaving IN_IF with unsaved/unmodified prefix
   if (
@@ -466,6 +485,7 @@ async function handleJoinWaitlist() {
 
 async function handleDropOut(sendNotification: boolean) {
   droppingOut.value = true;
+  const targetStatus = pendingStatusChange.value || 'OUT';
 
   try {
     let smsUrl: string | null = null;
@@ -480,11 +500,11 @@ async function handleDropOut(sendNotification: boolean) {
       }
     }
 
-    await eventsStore.submitRsvp(slug.value, 'OUT');
-    selectedStatus.value = 'OUT';
+    await eventsStore.submitRsvp(slug.value, targetStatus, targetStatus === 'IN_IF' ? comment.value : undefined);
+    selectedStatus.value = targetStatus;
 
     toast.add({
-      title: 'Dropped out',
+      title: 'Response updated',
       description: "You've been removed from the confirmed list",
       color: 'success',
     });
@@ -494,31 +514,11 @@ async function handleDropOut(sendNotification: boolean) {
     }
 
     showDropOutModal.value = false;
+    pendingStatusChange.value = null;
   } catch (error: any) {
     toast.add({
       title: 'Error',
-      description: error.data?.message || 'Failed to drop out',
-      color: 'error',
-    });
-  } finally {
-    droppingOut.value = false;
-  }
-}
-
-async function handleSilentDropOut() {
-  droppingOut.value = true;
-  try {
-    await eventsStore.submitRsvp(slug.value, 'OUT');
-    selectedStatus.value = 'OUT';
-    toast.add({
-      title: 'Dropped out',
-      description: "You've been removed from the confirmed list",
-      color: 'success',
-    });
-  } catch (error: any) {
-    toast.add({
-      title: 'Error',
-      description: error.data?.message || 'Failed to drop out',
+      description: error.data?.message || 'Failed to update response',
       color: 'error',
     });
   } finally {
@@ -1113,18 +1113,26 @@ function closeManageGroupsModal() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-950">
-    <!-- Modal-style Header -->
-    <div
-      class="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
-    >
-      <NuxtLink
-        to="/"
-        class="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-      >
-        <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
-        <span class="text-sm font-medium">Back</span>
-      </NuxtLink>
+  <UModal
+    v-model:open="modalOpen"
+    fullscreen
+    :dismissible="false"
+    :ui="{ content: 'bg-gray-50 dark:bg-gray-950' }"
+    @update:open="(val) => !val && closeModal()"
+  >
+    <template #content>
+      <div class="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <!-- Modal-style Header -->
+        <div
+          class="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
+        >
+          <button
+            class="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            @click="closeModal"
+          >
+            <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
+            <span class="text-sm font-medium">Back</span>
+          </button>
       <div v-if="event" class="flex items-center gap-2">
         <button
           v-if="event.allowSharing"
@@ -1353,7 +1361,7 @@ function closeManageGroupsModal() {
                   ? 'bg-red-100 ring-2 ring-red-500 dark:bg-red-900/30'
                   : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
               ]"
-              @click="isConfirmed ? (canSilentDropOut ? handleSilentDropOut() : (showDropOutModal = true)) : selectStatus('OUT')"
+              @click="selectStatus('OUT')"
             >
               <UIcon
                 :name="
@@ -1831,7 +1839,7 @@ function closeManageGroupsModal() {
               />
               <button
                 class="w-full py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                @click="showDropOutModal = false"
+                @click="showDropOutModal = false; pendingStatusChange = null"
               >
                 Cancel
               </button>
@@ -2134,6 +2142,8 @@ function closeManageGroupsModal() {
       </UModal>
     </div>
   </div>
+    </template>
+  </UModal>
 </template>
 
 <style scoped>

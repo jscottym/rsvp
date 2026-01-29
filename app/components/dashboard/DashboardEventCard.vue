@@ -203,14 +203,23 @@ const spotOpenedUp = computed(() => {
             {{ formatTime(event.datetime, event.endDatetime) }}
           </span>
         </div>
-        <div v-if="statusConfig.iconSolid" class="flex items-center gap-1.5">
-          <span :class="['text-xs font-medium', statusConfig.textColor]">
-            {{ statusConfig.label }}
-          </span>
-          <UIcon
-            :name="statusConfig.iconSolid"
-            :class="['w-4 h-4', statusConfig.iconColor]"
-          />
+        <div class="flex flex-col items-end gap-0.5">
+          <div v-if="statusConfig.iconSolid" class="flex items-center gap-1.5">
+            <span :class="['text-xs font-medium', statusConfig.textColor]">
+              {{ statusConfig.label }}
+            </span>
+            <UIcon
+              :name="statusConfig.iconSolid"
+              :class="['w-4 h-4', statusConfig.iconColor]"
+            />
+          </div>
+          <div
+            v-if="event.isOrganizer"
+            class="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+          >
+            <span>Organizer</span>
+            <UIcon name="i-heroicons-star-solid" class="w-3 h-3" />
+          </div>
         </div>
       </div>
 

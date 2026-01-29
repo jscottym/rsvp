@@ -59,7 +59,8 @@ async function copyToClipboard() {
     copied.value = true
     setTimeout(() => {
       copied.value = false
-    }, 2000)
+      open.value = false
+    }, 500)
   } catch {
     // Fallback for older browsers
     const textarea = document.createElement('textarea')
@@ -71,7 +72,8 @@ async function copyToClipboard() {
     copied.value = true
     setTimeout(() => {
       copied.value = false
-    }, 2000)
+      open.value = false
+    }, 500)
   }
 }
 
