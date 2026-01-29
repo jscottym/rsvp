@@ -34,7 +34,6 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   claimSpot: [slug: string];
-  click: [slug: string];
 }>();
 
 const claiming = ref(false);
@@ -164,16 +163,14 @@ const spotOpenedUp = computed(() => {
 </script>
 
 <template>
-  <button
-    type="button"
+  <div
     :class="[
-      'group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-200 active:scale-[0.98] text-left w-full',
+      'group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-200 active:scale-[0.98] text-left w-full cursor-pointer',
       statusConfig.bg,
       statusConfig.border,
       statusConfig.ring,
       'border',
     ]"
-    @click="emit('click', event.slug)"
   >
     <!-- Spot opened up banner -->
     <div

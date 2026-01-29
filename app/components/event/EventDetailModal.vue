@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatRelativeDay } from '~/utils/dateFormat';
-import { getRsvpStatusConfig, type RsvpStatus } from '~/utils/rsvpStatus';
+import type { RsvpStatus } from '~/utils/rsvpStatus';
 
 interface Props {
   open: boolean;
@@ -27,7 +27,6 @@ const selectedStatus = ref<RsvpStatus | null>(null);
 const showDropOutModal = ref(false);
 const droppingOut = ref(false);
 
-// Event data
 const event = ref<any>(null);
 
 // Fetch event when modal opens
@@ -40,8 +39,6 @@ watch(
       try {
         await eventsStore.fetchEvent(props.slug);
         event.value = eventsStore.currentEvent;
-
-        // Initialize from existing RSVP
         if (event.value?.userRsvp) {
           selectedStatus.value = event.value.userRsvp.status;
         }
@@ -55,7 +52,6 @@ watch(
   { immediate: true }
 );
 
-// Computed values
 const isFull = computed(() => {
   if (!event.value) return false;
   return (event.value.rsvpCount ?? 0) >= event.value.maxPlayers;
@@ -63,14 +59,13 @@ const isFull = computed(() => {
 
 const isConfirmed = computed(() => event.value?.userRsvp?.status === 'IN');
 const isOnWaitlist = computed(() => event.value?.userRsvp?.status === 'WAITLIST');
-const hasWaitlist = computed(() => (event.value?.waitlistCount ?? 0) > 0);
 const spotOpenedUp = computed(() => isOnWaitlist.value && !isFull.value);
 
 const rsvpsIn = computed(() =>
   event.value?.rsvps?.filter((r: any) => r.status === 'IN') || []
 );
 
-function formatTime(datetime: string, endDatetime?: string) {
+function formatTime(datetime: string, endDatetime?: string | null) {
   const start = new Date(datetime);
   const startHour = start.getHours();
   const startMinute = start.getMinutes();
@@ -101,12 +96,7 @@ function formatTime(datetime: string, endDatetime?: string) {
 }
 
 function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
 function close() {
@@ -126,13 +116,11 @@ async function selectStatus(status: RsvpStatus) {
 
 async function autoSave() {
   if (!selectedStatus.value) return;
-
   if (!authStore.isAuthenticated) {
     pendingRsvpStatus.value = selectedStatus.value;
     showAuthModal.value = true;
     return;
   }
-
   await submitRsvp();
 }
 
@@ -147,11 +135,8 @@ async function submitPendingRsvp() {
 async function submitRsvp() {
   if (!selectedStatus.value) return;
   rsvpLoading.value = true;
-
   try {
     await eventsStore.submitRsvp(props.slug, selectedStatus.value);
-
-    // Refresh event data
     await eventsStore.fetchEvent(props.slug);
     event.value = eventsStore.currentEvent;
 
@@ -185,7 +170,6 @@ async function handleJoinWaitlist() {
     showAuthModal.value = true;
     return;
   }
-
   selectedStatus.value = 'WAITLIST';
   await submitRsvp();
 }
@@ -196,27 +180,15 @@ async function handleClaimSpot() {
     showAuthModal.value = true;
     return;
   }
-
   rsvpLoading.value = true;
   try {
     await eventsStore.submitRsvp(props.slug, 'IN');
     selectedStatus.value = 'IN';
-
-    // Refresh event data
     await eventsStore.fetchEvent(props.slug);
     event.value = eventsStore.currentEvent;
-
-    toast.add({
-      title: "You're in!",
-      description: 'You claimed the spot!',
-      color: 'success',
-    });
+    toast.add({ title: "You're in!", description: 'You claimed the spot!', color: 'success' });
   } catch (error: any) {
-    toast.add({
-      title: 'Error',
-      description: error.data?.message || 'Failed to claim spot',
-      color: 'error',
-    });
+    toast.add({ title: 'Error', description: error.data?.message || 'Failed to claim spot', color: 'error' });
   } finally {
     rsvpLoading.value = false;
   }
@@ -227,23 +199,12 @@ async function handleDropOut() {
   try {
     await eventsStore.submitRsvp(props.slug, 'OUT');
     selectedStatus.value = 'OUT';
-
-    // Refresh event data
     await eventsStore.fetchEvent(props.slug);
     event.value = eventsStore.currentEvent;
-
-    toast.add({
-      title: 'Dropped out',
-      description: "You've been removed from the confirmed list",
-      color: 'success',
-    });
+    toast.add({ title: 'Dropped out', description: "You've been removed from the confirmed list", color: 'success' });
     showDropOutModal.value = false;
   } catch (error: any) {
-    toast.add({
-      title: 'Error',
-      description: error.data?.message || 'Failed to drop out',
-      color: 'error',
-    });
+    toast.add({ title: 'Error', description: error.data?.message || 'Failed to drop out', color: 'error' });
   } finally {
     droppingOut.value = false;
   }
@@ -254,15 +215,13 @@ async function handleDropOut() {
   <UModal
     :open="open"
     fullscreen
-    :ui="{
-      content: 'bg-gray-50 dark:bg-gray-950',
-    }"
+    :ui="{ content: 'bg-gray-50 dark:bg-gray-950' }"
     @update:open="emit('update:open', $event)"
   >
     <template #content>
       <div class="flex flex-col h-full">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <!-- Modal Header -->
+        <div class="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <button
             class="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             @click="close"
@@ -279,43 +238,47 @@ async function handleDropOut() {
         </div>
 
         <!-- Content -->
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto px-4 py-4">
           <!-- Loading -->
-          <div v-if="loading" class="flex items-center justify-center h-64">
-            <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-gray-400" />
+          <div v-if="loading" class="space-y-4">
+            <USkeleton class="h-32 w-full rounded-2xl" />
+            <USkeleton class="h-24 w-full rounded-2xl" />
+            <USkeleton class="h-40 w-full rounded-2xl" />
           </div>
 
           <!-- Error -->
-          <div v-else-if="error" class="p-6 text-center">
+          <div v-else-if="error" class="py-12 text-center">
             <UIcon name="i-heroicons-exclamation-circle" class="w-12 h-12 text-red-500 mx-auto mb-3" />
             <p class="text-gray-600 dark:text-gray-400">{{ error }}</p>
           </div>
 
           <!-- Event Content -->
-          <div v-else-if="event" class="p-4">
-            <!-- Event Info -->
+          <template v-else-if="event">
+            <!-- CARD 1: Event Info -->
             <div class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4">
-              <!-- Location & Time -->
-              <div class="flex items-start justify-between gap-3 mb-3">
-                <div class="flex items-center gap-2 min-w-0">
-                  <UIcon name="i-heroicons-map-pin" class="w-5 h-5 text-gray-400 shrink-0" />
-                  <span class="font-semibold text-gray-900 dark:text-white truncate">
-                    {{ event.location }}
-                  </span>
+              <!-- Location -->
+              <div class="flex items-start gap-3 mb-3">
+                <UIcon name="i-heroicons-map-pin" class="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+                <span class="font-semibold text-gray-900 dark:text-white">{{ event.location }}</span>
+              </div>
+
+              <!-- Date & Time -->
+              <div class="flex items-center gap-3 mb-3">
+                <UIcon name="i-heroicons-calendar" class="w-5 h-5 text-gray-400 shrink-0" />
+                <div class="text-sm">
+                  <span class="font-medium text-primary-600 dark:text-primary-400">{{ formatRelativeDay(event.datetime) }}</span>
+                  <span class="text-gray-400 mx-1">·</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ formatTime(event.datetime, event.endDatetime) }}</span>
                 </div>
               </div>
 
-              <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                <UIcon name="i-heroicons-calendar" class="w-4 h-4" />
-                <span class="font-medium text-primary-600 dark:text-primary-400">
-                  {{ formatRelativeDay(event.datetime) }}
-                </span>
-                <span>·</span>
-                <span>{{ formatTime(event.datetime, event.endDatetime) }}</span>
-              </div>
+              <!-- Description -->
+              <p v-if="event.description" class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                {{ event.description }}
+              </p>
 
               <!-- Player Count -->
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
                 <div class="flex items-center gap-2">
                   <UIcon name="i-heroicons-users" class="w-4 h-4 text-gray-400" />
                   <span class="text-sm text-gray-600 dark:text-gray-400">Players</span>
@@ -329,13 +292,17 @@ async function handleDropOut() {
               <!-- Progress bar -->
               <div class="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
-                  class="h-full bg-emerald-500 transition-all duration-300"
+                  class="h-full transition-all duration-300"
+                  :class="isFull ? 'bg-amber-500' : 'bg-emerald-500'"
                   :style="{ width: `${Math.min(100, ((event.rsvpCount ?? 0) / event.maxPlayers) * 100)}%` }"
                 />
               </div>
+              <p v-if="isFull" class="text-xs text-amber-600 dark:text-amber-400 mt-1 text-center">
+                Event is full
+              </p>
             </div>
 
-            <!-- RSVP Section -->
+            <!-- CARD 2: Are you in? -->
             <div class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4">
               <h3 class="font-semibold text-gray-900 dark:text-white mb-3">
                 {{ isConfirmed ? "You're in!" : 'Are you in?' }}
@@ -350,12 +317,7 @@ async function handleDropOut() {
                   <UIcon name="i-heroicons-check-circle-solid" class="h-5 w-5 text-emerald-500" />
                   <span class="font-medium text-emerald-700 dark:text-emerald-300">Confirmed</span>
                 </div>
-                <UButton
-                  color="error"
-                  variant="outline"
-                  size="sm"
-                  @click="showDropOutModal = true"
-                >
+                <UButton color="error" variant="outline" size="sm" @click="showDropOutModal = true">
                   Drop out
                 </UButton>
               </div>
@@ -372,20 +334,13 @@ async function handleDropOut() {
                     <p class="text-sm text-emerald-700 dark:text-emerald-300">Claim it now</p>
                   </div>
                 </div>
-                <UButton
-                  color="primary"
-                  size="lg"
-                  block
-                  :loading="rsvpLoading"
-                  @click="handleClaimSpot"
-                >
+                <UButton color="primary" size="lg" block :loading="rsvpLoading" @click="handleClaimSpot">
                   Claim This Spot
                 </UButton>
               </div>
 
               <!-- Response Buttons -->
               <div v-else class="flex gap-2">
-                <!-- I'm In / Join Waitlist -->
                 <button
                   :class="[
                     'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all active:scale-95',
@@ -406,7 +361,6 @@ async function handleDropOut() {
                   </span>
                 </button>
 
-                <!-- Out -->
                 <button
                   :class="[
                     'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all active:scale-95',
@@ -425,7 +379,6 @@ async function handleDropOut() {
                   </span>
                 </button>
 
-                <!-- Maybe -->
                 <button
                   :class="[
                     'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all active:scale-95',
@@ -446,7 +399,7 @@ async function handleDropOut() {
               </div>
             </div>
 
-            <!-- Attendees Preview -->
+            <!-- CARD 3: Who's In -->
             <div v-if="rsvpsIn.length > 0" class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="font-semibold text-gray-900 dark:text-white">Who's In</h3>
@@ -454,9 +407,9 @@ async function handleDropOut() {
               </div>
               <div class="flex flex-wrap gap-2">
                 <div
-                  v-for="rsvp in rsvpsIn.slice(0, 8)"
+                  v-for="rsvp in rsvpsIn.slice(0, 10)"
                   :key="rsvp.id"
-                  class="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-full"
                 >
                   <span class="w-5 h-5 bg-emerald-200 dark:bg-emerald-800 rounded-full flex items-center justify-center text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
                     {{ getInitials(rsvp.name) }}
@@ -464,38 +417,27 @@ async function handleDropOut() {
                   <span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">
                     {{ rsvp.name.split(' ')[0] }}
                   </span>
+                  <UBadge
+                    v-if="rsvp.userId === event.organizer?.id"
+                    label="Organizer"
+                    color="primary"
+                    variant="subtle"
+                    size="xs"
+                  />
                 </div>
-                <span v-if="rsvpsIn.length > 8" class="text-xs text-gray-400 self-center">
-                  +{{ rsvpsIn.length - 8 }} more
+                <span v-if="rsvpsIn.length > 10" class="text-xs text-gray-400 self-center px-2">
+                  +{{ rsvpsIn.length - 10 }} more
                 </span>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- View Full Details Footer -->
-        <div class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-          <UButton
-            color="neutral"
-            variant="soft"
-            size="lg"
-            block
-            @click="viewFullDetails"
-          >
-            View Full Details
-          </UButton>
+          </template>
         </div>
       </div>
     </template>
   </UModal>
 
-  <!-- Auth Modal -->
-  <AuthModal
-    v-model:open="showAuthModal"
-    @authenticated="submitPendingRsvp"
-  />
+  <AuthModal v-model:open="showAuthModal" @authenticated="submitPendingRsvp" />
 
-  <!-- Drop Out Modal -->
   <UModal v-model:open="showDropOutModal">
     <template #body>
       <div class="text-center py-2">
@@ -507,22 +449,10 @@ async function handleDropOut() {
           Let the group know so someone else can take your spot.
         </p>
         <div class="space-y-3">
-          <UButton
-            color="error"
-            size="lg"
-            block
-            :loading="droppingOut"
-            @click="handleDropOut"
-          >
+          <UButton color="error" size="lg" block :loading="droppingOut" @click="handleDropOut">
             Drop Out
           </UButton>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="lg"
-            block
-            @click="showDropOutModal = false"
-          >
+          <UButton color="neutral" variant="ghost" size="lg" block @click="showDropOutModal = false">
             Cancel
           </UButton>
         </div>

@@ -640,87 +640,6 @@ function formatTimeAgo(datetime: string) {
 
 const displayedActivities = computed(() => activities.value.slice(0, 10));
 
-interface CalendarDay {
-  date: Date;
-  dayNum: number;
-  dayName: string;
-  isToday: boolean;
-  isEventDay: boolean;
-  isWeekend: boolean;
-  isPast: boolean;
-}
-
-const weekCalendar = computed(() => {
-  if (!event.value) return null;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const eventDate = new Date(event.value.datetime);
-  eventDate.setHours(0, 0, 0, 0);
-
-  // Get Sunday of this week (week starts on Sunday)
-  const thisSunday = new Date(today);
-  thisSunday.setDate(today.getDate() - today.getDay());
-
-  // Get Sunday of next week
-  const nextSunday = new Date(thisSunday);
-  nextSunday.setDate(thisSunday.getDate() + 7);
-
-  // Get Sunday of event's week
-  const eventSunday = new Date(eventDate);
-  eventSunday.setDate(eventDate.getDate() - eventDate.getDay());
-
-  function generateWeek(
-    sunday: Date,
-    weekLabel: string
-  ): { label: string; days: CalendarDay[] } {
-    const days: CalendarDay[] = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(sunday);
-      date.setDate(sunday.getDate() + i);
-      const dayOfWeek = date.getDay();
-      days.push({
-        date,
-        dayNum: date.getDate(),
-        dayName: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek],
-        isToday: date.getTime() === today.getTime(),
-        isEventDay: date.getTime() === eventDate.getTime(),
-        isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
-        isPast: date.getTime() < today.getTime(),
-      });
-    }
-    return { label: weekLabel, days };
-  }
-
-  const isThisWeek = eventSunday.getTime() === thisSunday.getTime();
-  const isNextWeek = eventSunday.getTime() === nextSunday.getTime();
-
-  if (isThisWeek) {
-    return {
-      showNextWeek: false,
-      weeks: [generateWeek(thisSunday, 'This Week')],
-    };
-  } else if (isNextWeek) {
-    return {
-      showNextWeek: true,
-      weeks: [
-        generateWeek(thisSunday, 'This Week'),
-        generateWeek(nextSunday, 'Next Week'),
-      ],
-    };
-  }
-
-  // Event is further out - just show the event's week
-  const eventWeekLabel = eventDate.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-  return {
-    showNextWeek: false,
-    weeks: [generateWeek(eventSunday, `Week of ${eventWeekLabel}`)],
-  };
-});
-
 useSeoMeta({
   title: () => (event.value ? `${event.value.title} - RSVP` : 'Event - RSVP'),
   description: () =>
@@ -1073,189 +992,126 @@ async function deleteEvent() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-lg px-4 py-6">
-    <!-- Loading Skeleton -->
-    <div v-if="pending" class="space-y-6">
-      <!-- Header skeleton -->
-      <div class="space-y-3">
-        <div class="flex items-center justify-between">
-          <USkeleton class="h-5 w-32" />
-          <USkeleton class="h-5 w-28" />
-        </div>
-        <!-- Calendar skeleton -->
-        <div class="flex gap-1">
-          <USkeleton v-for="i in 7" :key="i" class="h-14 flex-1 rounded-lg" />
-        </div>
-      </div>
-
-      <!-- RSVP section skeleton -->
-      <div class="space-y-3">
-        <USkeleton class="h-5 w-24" />
-        <div class="flex gap-2">
-          <USkeleton v-for="i in 4" :key="i" class="h-16 flex-1 rounded-xl" />
-        </div>
-      </div>
-
-      <!-- Progress skeleton -->
-      <div class="flex items-center gap-4">
-        <USkeleton class="h-3 w-24 rounded-full" />
-        <USkeleton class="h-4 w-16" />
-      </div>
-
-      <!-- Responses skeleton -->
-      <div class="space-y-2">
-        <USkeleton class="h-8 w-full rounded-lg" />
-        <USkeleton class="h-12 w-full rounded-lg" />
-        <USkeleton class="h-12 w-full rounded-lg" />
-      </div>
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" class="py-12 text-center">
-      <UIcon
-        name="i-heroicons-exclamation-circle"
-        class="mx-auto mb-4 h-12 w-12 text-red-500"
-      />
-      <h2 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-        Event Not Found
-      </h2>
-      <p class="mb-4 text-gray-600 dark:text-gray-400">
-        This event may have been deleted or the link is incorrect.
-      </p>
-      <UButton to="/" color="primary" variant="soft">Back to Home</UButton>
-    </div>
-
-    <!-- Event Content -->
-    <template v-else-if="event">
-      <!-- Control Bar -->
-      <div class="mb-4 flex gap-2">
-        <UButton
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <!-- Modal-style Header -->
+    <div class="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+      <button
+        class="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+        @click="router.back()"
+      >
+        <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
+        <span class="text-sm font-medium">Back</span>
+      </button>
+      <div v-if="event" class="flex items-center gap-2">
+        <button
           v-if="event.allowSharing"
-          color="primary"
-          variant="soft"
-          icon="i-heroicons-share"
-          label="Share"
-          class="flex-1"
-          size="lg"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
           @click="showShareModal = true"
-        />
-        <UButton
+        >
+          <UIcon name="i-heroicons-share" class="w-4 h-4" />
+          <span>Share</span>
+        </button>
+        <button
           v-if="event.isOrganizer"
-          color="neutral"
-          variant="soft"
-          icon="i-heroicons-pencil-square"
-          label="Edit"
-          class="flex-1"
-          size="lg"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           @click="handleEditClick"
-        />
+        >
+          <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
+          <span>Edit</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mx-auto max-w-lg px-4 py-4">
+      <!-- Loading Skeleton -->
+      <div v-if="pending" class="space-y-4">
+        <USkeleton class="h-32 w-full rounded-2xl" />
+        <USkeleton class="h-24 w-full rounded-2xl" />
+        <USkeleton class="h-40 w-full rounded-2xl" />
       </div>
 
-      <!-- Sharing Note Banner -->
-      <UAlert
-        v-if="event.sharingNote"
-        color="warning"
-        variant="soft"
-        class="mb-4"
-        icon="i-heroicons-information-circle"
-        :title="event.sharingNote"
-      />
-
-      <!-- Full Event Banner -->
-      <UAlert
-        v-if="isFull"
-        color="warning"
-        variant="soft"
-        icon="i-heroicons-exclamation-triangle"
-        title="This event is full"
-      />
-
-      <!--  Header -->
-      <div class="mb-6">
-        <!-- Location and Time -->
-        <div class="mb-3 flex items-center justify-between">
-          <div class="flex min-w-0 flex-1 items-center gap-2">
-            <span class="truncate font-bold text-gray-900 dark:text-white">{{
-              event.location
-            }}</span>
-          </div>
-          <div class="flex flex-shrink-0 items-center">
-            <span class="text-sm text-gray-600 dark:text-gray-400"
-              ><span class="text-primary-500 font-medium">{{
-                formatRelativeDay(event.datetime)
-              }}</span>
-              · {{ formatTime(event.datetime, event.endDatetime) }}</span
-            >
-          </div>
-        </div>
-
-        <p
-          v-if="event.description"
-          class="mt-3 text-sm text-gray-600 dark:text-gray-400"
-        >
-          {{ event.description }}
+      <!-- Error -->
+      <div v-else-if="error" class="py-12 text-center">
+        <UIcon
+          name="i-heroicons-exclamation-circle"
+          class="mx-auto mb-4 h-12 w-12 text-red-500"
+        />
+        <h2 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
+          Event Not Found
+        </h2>
+        <p class="mb-4 text-gray-600 dark:text-gray-400">
+          This event may have been deleted or the link is incorrect.
         </p>
+        <UButton to="/" color="primary" variant="soft">Back to Home</UButton>
+      </div>
 
-        <!-- Week Calendar -->
-        <div v-if="weekCalendar" class="mt-4">
-          <div
-            v-for="(week, weekIndex) in weekCalendar.weeks"
-            :key="weekIndex"
-            class="mb-2"
-          >
-            <p
-              v-if="weekCalendar.showNextWeek"
-              class="mb-1 text-xs font-medium text-gray-500"
-            >
-              {{ week.label }}
-            </p>
-            <div class="flex gap-1">
-              <div
-                v-for="day in week.days"
-                :key="day.dayNum"
-                :class="[
-                  'flex flex-1 flex-col items-center rounded-lg py-1.5 text-xs transition-all',
-                  day.isEventDay
-                    ? 'bg-primary-500 ring-primary-300 font-bold text-white ring-2 ring-offset-1'
-                    : day.isToday
-                      ? 'bg-gray-300 font-semibold dark:bg-gray-600'
-                      : day.isWeekend
-                        ? 'bg-gray-50 text-gray-400 dark:bg-gray-800/40'
-                        : day.isPast
-                          ? 'text-gray-400 dark:text-gray-600'
-                          : 'text-gray-700 dark:text-gray-300',
-                ]"
-              >
-                <span
-                  class="text-[10px] leading-tight"
-                  :class="day.isEventDay ? 'text-white/80' : ''"
-                  >{{ day.dayName }}</span
-                >
-                <span class="text-sm leading-tight">{{ day.dayNum }}</span>
-                <span
-                  v-if="day.isEventDay"
-                  class="text-[9px] leading-tight font-medium text-white/90"
-                  >Event</span
-                >
-                <span
-                  v-else-if="day.isToday"
-                  class="text-primary-500 text-[9px] leading-tight font-medium"
-                  >Today</span
-                >
-              </div>
+      <!-- Event Content -->
+      <template v-else-if="event">
+        <!-- Sharing Note Banner -->
+        <UAlert
+          v-if="event.sharingNote"
+          color="warning"
+          variant="soft"
+          class="mb-4"
+          icon="i-heroicons-information-circle"
+          :title="event.sharingNote"
+        />
+
+        <!-- CARD 1: Event Info -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4">
+          <!-- Location -->
+          <div class="flex items-start gap-3 mb-3">
+            <UIcon name="i-heroicons-map-pin" class="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+            <span class="font-semibold text-gray-900 dark:text-white">{{ event.location }}</span>
+          </div>
+
+          <!-- Date & Time -->
+          <div class="flex items-center gap-3 mb-3">
+            <UIcon name="i-heroicons-calendar" class="w-5 h-5 text-gray-400 shrink-0" />
+            <div class="text-sm">
+              <span class="font-medium text-primary-600 dark:text-primary-400">{{ formatRelativeDay(event.datetime) }}</span>
+              <span class="text-gray-400 mx-1">·</span>
+              <span class="text-gray-600 dark:text-gray-400">{{ formatTime(event.datetime, event.endDatetime) }}</span>
             </div>
           </div>
+
+          <!-- Description -->
+          <p v-if="event.description" class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            {{ event.description }}
+          </p>
+
+          <!-- Player Count -->
+          <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-users" class="w-4 h-4 text-gray-400" />
+              <span class="text-sm text-gray-600 dark:text-gray-400">Players</span>
+            </div>
+            <div>
+              <span class="text-xl font-bold text-primary-600">{{ event.rsvpCount ?? 0 }}</span>
+              <span class="text-gray-400">/{{ event.maxPlayers }}</span>
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div class="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div
+              class="h-full transition-all duration-300"
+              :class="isFull ? 'bg-amber-500' : 'bg-emerald-500'"
+              :style="{ width: `${Math.min(100, ((event.rsvpCount ?? 0) / event.maxPlayers) * 100)}%` }"
+            />
+          </div>
+          <p v-if="isFull" class="text-xs text-amber-600 dark:text-amber-400 mt-1 text-center">
+            Event is full
+          </p>
         </div>
-      </div>
 
-      <!-- RSVP Section -->
-      <div class="mb-6 space-y-4">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ isConfirmed ? 'See you there!' : 'Are you in?' }}
-        </h2>
+        <!-- CARD 2: Are you in? -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4">
+          <h3 class="font-semibold text-gray-900 dark:text-white mb-3">
+            {{ isConfirmed ? 'See you there!' : 'Are you in?' }}
+          </h3>
 
-        <!-- Compact RSVP Buttons -->
-        <template v-if="true">
+          <!-- RSVP Content -->
           <!-- Confirmed state banner -->
           <div
             v-if="isConfirmed"
@@ -1615,12 +1471,11 @@ async function deleteEvent() {
               Add note
             </button>
           </div>
-        </template>
-      </div>
+        </div>
 
-      <!-- Responses Section with Tabs -->
-      <div v-if="event.rsvps && event.rsvps.length > 0" class="mt-8">
-        <UTabs
+        <!-- CARD 3: Who's In -->
+        <div v-if="event.rsvps && event.rsvps.length > 0" class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4">
+          <UTabs
           v-model="activeResponseTab"
           :items="responseTabs"
           :content="false"
@@ -1748,20 +1603,20 @@ async function deleteEvent() {
         </div>
       </div>
 
-      <!-- Activity Log Section -->
-      <div
-        v-if="displayedActivities.length > 0"
-        class="mt-8 border-t border-gray-200 pt-6 dark:border-gray-800"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
-            Recent Activity
-          </h3>
-          <div v-if="isConnected" class="flex items-center gap-1.5">
-            <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-            <span class="text-xs text-gray-400">Live</span>
+        <!-- Activity Log Section -->
+        <div
+          v-if="displayedActivities.length > 0"
+          class="mt-4 px-4 py-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm"
+        >
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Recent Activity
+            </h3>
+            <div v-if="isConnected" class="flex items-center gap-1.5">
+              <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              <span class="text-xs text-gray-400">Live</span>
+            </div>
           </div>
-        </div>
         <TransitionGroup name="activity-list" tag="ul" class="space-y-2">
           <li
             v-for="activity in displayedActivities"
@@ -2036,6 +1891,7 @@ async function deleteEvent() {
       }"
       :rsvps="event.rsvps?.map(r => ({ id: r.id, status: r.status, name: r.name, phone: null })) || []"
     />
+    </div>
   </div>
 </template>
 
