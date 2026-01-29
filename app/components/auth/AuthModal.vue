@@ -17,10 +17,11 @@ const isOpen = computed({
 })
 
 const authStore = useAuthStore()
-const { setupRecaptcha, sendVerificationCode, verifyCode: verifyOtp, loading, error: phoneAuthError, resetState } = usePhoneAuth()
+const { setupRecaptcha, sendVerificationCode, verifyCode: verifyOtp, loading, error: phoneAuthError, resetState, isRecaptchaReady } = usePhoneAuth()
 const toast = useToast()
 const router = useRouter()
 const recaptchaReady = ref(false)
+const recaptchaInitializing = ref(false)
 
 const step = ref<'phone' | 'code' | 'name'>('phone')
 const phoneStorage = useLocalStorage('pickup-sports-last-phone', '')
@@ -70,15 +71,21 @@ watch(phoneAuthError, (val) => {
 })
 
 async function initRecaptcha() {
+  if (recaptchaInitializing.value) return
+  recaptchaInitializing.value = true
   recaptchaReady.value = false
   error.value = null
   await nextTick()
   try {
-    await setupRecaptcha('recaptcha-container')
+    await setupRecaptcha('recaptcha-container', () => {
+      recaptchaReady.value = false
+    })
     recaptchaReady.value = true
   } catch (e: any) {
     console.error('Failed to setup reCAPTCHA:', e)
     error.value = 'Failed to initialize verification. Please refresh and try again.'
+  } finally {
+    recaptchaInitializing.value = false
   }
 }
 
@@ -104,8 +111,8 @@ async function sendCode() {
     return
   }
 
-  // Make sure reCAPTCHA is ready
-  if (!recaptchaReady.value) {
+  // Always get a fresh reCAPTCHA token before sending to avoid expiration issues
+  if (!recaptchaReady.value || !isRecaptchaReady()) {
     await initRecaptcha()
     if (!recaptchaReady.value) {
       return // Error already set by initRecaptcha
@@ -116,13 +123,28 @@ async function sendCode() {
   if (success) {
     step.value = 'code'
     codeParts.value = Array.from({ length: 6 }, () => '')
-    // Focus the PIN input after DOM updates
+    // Focus the PIN input after DOM updates - use multiple nextTick to ensure component is mounted
     await nextTick()
-    const firstInput = pinInputRef.value?.querySelector('input')
-    firstInput?.focus()
+    await nextTick()
+    focusPinInput()
   } else {
     // Re-initialize reCAPTCHA for retry
     await initRecaptcha()
+  }
+}
+
+function focusPinInput() {
+  const container = pinInputRef.value
+  if (!container) return
+  
+  const firstInput = container.querySelector('input') as HTMLInputElement | null
+  if (firstInput) {
+    firstInput.focus()
+  } else {
+    setTimeout(() => {
+      const input = container.querySelector('input') as HTMLInputElement | null
+      input?.focus()
+    }, 100)
   }
 }
 

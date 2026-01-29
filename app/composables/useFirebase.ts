@@ -52,6 +52,8 @@ export function useFirebase() {
   }
 }
 
+let recaptchaExpiredCallback: (() => void) | null = null
+
 export function usePhoneAuth() {
   const { getFirebaseAuth } = useFirebase()
 
@@ -73,8 +75,11 @@ export function usePhoneAuth() {
     document.querySelectorAll('.grecaptcha-badge').forEach(el => el.remove())
   }
 
-  const setupRecaptcha = async (containerId: string) => {
+  const setupRecaptcha = async (containerId: string, onExpired?: () => void) => {
     const auth = getFirebaseAuth()
+
+    // Store the expiration callback
+    recaptchaExpiredCallback = onExpired || null
 
     // Always clear existing verifier first
     clearRecaptcha()
@@ -96,14 +101,20 @@ export function usePhoneAuth() {
         // reCAPTCHA solved
       },
       'expired-callback': () => {
-        // Reset reCAPTCHA on expiry
         console.log('reCAPTCHA expired, resetting...')
         clearRecaptcha()
+        if (recaptchaExpiredCallback) {
+          recaptchaExpiredCallback()
+        }
       }
     })
 
     // Pre-render the reCAPTCHA widget
     await globalRecaptchaVerifier.render()
+  }
+
+  const isRecaptchaReady = () => {
+    return globalRecaptchaVerifier !== null
   }
 
   const sendVerificationCode = async (phoneNumber: string) => {
@@ -193,6 +204,7 @@ export function usePhoneAuth() {
     signOut,
     getCurrentUser,
     getIdToken,
-    resetState
+    resetState,
+    isRecaptchaReady
   }
 }
