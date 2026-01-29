@@ -53,11 +53,17 @@ const activitiesLoading = ref(false);
 
 // Manage groups modal state
 const showManageGroupsModal = ref(false);
-const selectedRsvpForGroups = ref<{ id: string; name: string; phone: string | null } | null>(null);
+const selectedRsvpForGroups = ref<{
+  id: string;
+  name: string;
+  phone: string | null;
+} | null>(null);
 const selectedGroupIds = ref<string[]>([]);
 const loadingRsvpDetails = ref(false);
 const savingGroups = ref(false);
-const rsvpDetailsCache = ref<Map<string, { name: string; phone: string | null }>>(new Map());
+const rsvpDetailsCache = ref<
+  Map<string, { name: string; phone: string | null }>
+>(new Map());
 
 const {
   data: eventData,
@@ -296,9 +302,9 @@ function getOrdinalSuffix(n: number): string {
 // Count of other players who are IN (not including current user)
 const otherPlayersInCount = computed(() => {
   if (!event.value?.rsvps) return 0;
-  const inRsvps = event.value.rsvps.filter(r => r.status === 'IN');
+  const inRsvps = event.value.rsvps.filter((r) => r.status === 'IN');
   // If user is in the list, subtract 1
-  const userIsIn = inRsvps.some(r => r.userId === authStore.user?.id);
+  const userIsIn = inRsvps.some((r) => r.userId === authStore.user?.id);
   return userIsIn ? inRsvps.length - 1 : inRsvps.length;
 });
 
@@ -500,7 +506,11 @@ async function handleDropOut(sendNotification: boolean) {
       }
     }
 
-    await eventsStore.submitRsvp(slug.value, targetStatus, targetStatus === 'IN_IF' ? comment.value : undefined);
+    await eventsStore.submitRsvp(
+      slug.value,
+      targetStatus,
+      targetStatus === 'IN_IF' ? comment.value : undefined
+    );
     selectedStatus.value = targetStatus;
 
     toast.add({
@@ -683,9 +693,47 @@ function getActivityComment(activity: EventActivity): string | null {
 
 const displayedActivities = computed(() => activities.value.slice(0, 10));
 
+function getEventUrl(withTimestamp = false): string {
+  if (import.meta.server) {
+    const requestUrl = useRequestURL();
+    const baseUrl = `${requestUrl.origin}/e/${slug.value}`;
+    return withTimestamp ? `${baseUrl}?t=${Date.now()}` : baseUrl;
+  }
+  const baseUrl = `${window.location.origin}/e/${slug.value}`;
+  return withTimestamp ? `${baseUrl}?t=${Date.now()}` : baseUrl;
+}
+
 useSeoMeta({
-  title: () => (event.value ? `${event.value.title} - RSVP` : 'Event - RSVP'),
+  title: () => {
+    if (!event.value) return 'Event - RSVP';
+    const date = formatRelativeDay(event.value.datetime);
+    const time = formatTime(event.value.datetime, event.value.endDatetime);
+    return `${event.value.location} ${date}, ${time}`;
+  },
   description: () =>
+    event.value
+      ? `Join ${event.value.title} at ${event.value.location}`
+      : 'View event details',
+  ogTitle: () => {
+    if (!event.value) return 'Event - RSVP';
+    const date = formatRelativeDay(event.value.datetime);
+    const time = formatTime(event.value.datetime, event.value.endDatetime);
+    return `${event.value.location} ${date}, ${time}`;
+  },
+  ogDescription: () =>
+    event.value
+      ? `Join ${event.value.title} at ${event.value.location}. ${event.value.rsvpCount ?? 0}/${event.value.maxPlayers} players.`
+      : 'View event details',
+  ogType: 'website',
+  ogUrl: () => getEventUrl(false),
+  twitterCard: 'summary',
+  twitterTitle: () => {
+    if (!event.value) return 'Event - RSVP';
+    const date = formatRelativeDay(event.value.datetime);
+    const time = formatTime(event.value.datetime, event.value.endDatetime);
+    return `${event.value.location} ${date}, ${time}`;
+  },
+  twitterDescription: () =>
     event.value
       ? `Join ${event.value.title} at ${event.value.location}`
       : 'View event details',
@@ -693,12 +741,7 @@ useSeoMeta({
 
 // Organizer features
 
-const eventUrl = computed(() => {
-  if (import.meta.client) {
-    return `${window.location.origin}/e/${slug.value}`;
-  }
-  return `/e/${slug.value}`;
-});
+const eventUrl = computed(() => getEventUrl(true));
 
 const editFormData = computed(() => {
   if (!event.value) return undefined;
@@ -1047,7 +1090,11 @@ async function openManageGroupsModal(rsvpId: string, rsvpName: string) {
     // Check cache first
     if (rsvpDetailsCache.value.has(rsvpId)) {
       const cached = rsvpDetailsCache.value.get(rsvpId)!;
-      selectedRsvpForGroups.value = { id: rsvpId, name: cached.name, phone: cached.phone };
+      selectedRsvpForGroups.value = {
+        id: rsvpId,
+        name: cached.name,
+        phone: cached.phone,
+      };
     } else {
       // Fetch full RSVP details to get phone number
       const token = await authStore.getIdToken();
@@ -1062,7 +1109,7 @@ async function openManageGroupsModal(rsvpId: string, rsvpName: string) {
         rsvpDetailsCache.value.set(r.id, { name: r.name, phone: r.phone });
       }
 
-      const rsvpDetail = response.rsvps.find(r => r.id === rsvpId);
+      const rsvpDetail = response.rsvps.find((r) => r.id === rsvpId);
       if (rsvpDetail) {
         selectedRsvpForGroups.value = {
           id: rsvpId,
@@ -1070,13 +1117,19 @@ async function openManageGroupsModal(rsvpId: string, rsvpName: string) {
           phone: rsvpDetail.phone,
         };
       } else {
-        selectedRsvpForGroups.value = { id: rsvpId, name: rsvpName, phone: null };
+        selectedRsvpForGroups.value = {
+          id: rsvpId,
+          name: rsvpName,
+          phone: null,
+        };
       }
     }
 
     // Set initial selected groups based on phone
     if (selectedRsvpForGroups.value?.phone) {
-      selectedGroupIds.value = groupsStore.getGroupsForPhone(selectedRsvpForGroups.value.phone);
+      selectedGroupIds.value = groupsStore.getGroupsForPhone(
+        selectedRsvpForGroups.value.phone
+      );
     } else {
       selectedGroupIds.value = [];
     }
@@ -1167,1015 +1220,1114 @@ function closeManageGroupsModal() {
             <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
             <span class="text-sm font-medium">Back</span>
           </button>
-      <div v-if="event" class="flex items-center gap-2">
-        <button
-          v-if="event.allowSharing"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-          @click="showShareModal = true"
-        >
-          <UIcon name="i-heroicons-share" class="w-4 h-4" />
-          <span>Share</span>
-        </button>
-        <button
-          v-if="event.isOrganizer"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          @click="handleEditClick"
-        >
-          <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
-          <span>Edit</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="mx-auto max-w-lg px-4 py-4 pb-8">
-      <!-- Loading Skeleton -->
-      <div v-if="pending" class="space-y-4">
-        <USkeleton class="h-32 w-full rounded-2xl" />
-        <USkeleton class="h-24 w-full rounded-2xl" />
-        <USkeleton class="h-40 w-full rounded-2xl" />
-      </div>
-
-      <!-- Error -->
-      <div v-else-if="error" class="py-12 text-center">
-        <UIcon
-          name="i-heroicons-exclamation-circle"
-          class="mx-auto mb-4 h-12 w-12 text-red-500"
-        />
-        <h2 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-          Event Not Found
-        </h2>
-        <p class="mb-4 text-gray-600 dark:text-gray-400">
-          This event may have been deleted or the link is incorrect.
-        </p>
-        <UButton to="/" color="primary" variant="soft">Back to Home</UButton>
-      </div>
-
-      <!-- Event Content -->
-      <template v-else-if="event">
-        <!-- Sharing Note Banner -->
-        <UAlert
-          v-if="event.sharingNote"
-          color="warning"
-          variant="soft"
-          class="mb-4"
-          icon="i-heroicons-information-circle"
-          :title="event.sharingNote"
-        />
-
-        <!-- CARD 1: Event Info -->
-        <div class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4">
-          <!-- Location & Date/Time on one line -->
-          <div class="flex items-center justify-between gap-3 mb-3">
-            <div class="flex items-center gap-2 min-w-0">
-              <UIcon
-                name="i-heroicons-map-pin"
-                class="w-4 h-4 text-gray-400 shrink-0"
-              />
-              <span class="font-semibold text-gray-900 dark:text-white truncate">{{
-                event.location
-              }}</span>
-            </div>
-            <div class="flex items-center gap-1 text-sm shrink-0">
-              <span class="font-medium text-primary-600 dark:text-primary-400">{{
-                formatRelativeDay(event.datetime)
-              }}</span>
-              <span class="text-gray-400">·</span>
-              <span class="text-gray-600 dark:text-gray-400">{{
-                formatTime(event.datetime, event.endDatetime)
-              }}</span>
-            </div>
-          </div>
-
-          <!-- Description -->
-          <p
-            v-if="event.description"
-            class="text-sm text-gray-600 dark:text-gray-400 mb-3"
-          >
-            {{ event.description }}
-          </p>
-
-          <!-- Progress bar with count on same row -->
-          <div class="flex items-center gap-3">
-            <div
-              class="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+          <div v-if="event" class="flex items-center gap-2">
+            <button
+              v-if="event.allowSharing"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+              @click="showShareModal = true"
             >
-              <div
-                class="h-full transition-all duration-300"
-                :class="isFull ? 'bg-amber-500' : 'bg-emerald-500'"
-                :style="{
-                  width: `${Math.min(100, ((event.rsvpCount ?? 0) / event.maxPlayers) * 100)}%`,
-                }"
-              />
-            </div>
-            <div class="shrink-0">
-              <span class="text-lg font-bold" :class="isFull ? 'text-amber-500' : 'text-primary-600'">{{
-                event.rsvpCount ?? 0
-              }}</span>
-              <span class="text-gray-400">/{{ event.maxPlayers }}</span>
-            </div>
+              <UIcon name="i-heroicons-share" class="w-4 h-4" />
+              <span>Share</span>
+            </button>
+            <button
+              v-if="event.isOrganizer"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              @click="handleEditClick"
+            >
+              <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
+              <span>Edit</span>
+            </button>
           </div>
-          <p
-            v-if="isFull"
-            class="text-xs text-amber-600 dark:text-amber-400 mt-1 text-center"
-          >
-            Event is full
-          </p>
         </div>
 
-        <!-- CARD 2: Are you in? -->
-        <div class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4">
-          <h3 class="font-semibold text-gray-900 dark:text-white mb-3">
-            {{ isConfirmed ? 'See you there!' : 'Are you in?' }}
-          </h3>
+        <div class="mx-auto max-w-lg px-4 py-4 pb-8">
+          <!-- Loading Skeleton -->
+          <div v-if="pending" class="space-y-4">
+            <USkeleton class="h-32 w-full rounded-2xl" />
+            <USkeleton class="h-24 w-full rounded-2xl" />
+            <USkeleton class="h-40 w-full rounded-2xl" />
+          </div>
 
-          <!-- RSVP Content -->
-          <!-- Spot opened up banner -->
-          <div
-            v-if="spotOpenedUp"
-            class="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 dark:bg-emerald-900/20 mb-3"
-          >
-            <div class="mb-3 flex items-center gap-3">
-              <UIcon
-                name="i-heroicons-sparkles"
-                class="h-6 w-6 text-emerald-600"
-              />
-              <div class="flex-1">
-                <p class="font-semibold text-emerald-900 dark:text-emerald-100">
-                  A spot opened up!
-                </p>
-                <p class="text-sm text-emerald-700 dark:text-emerald-300">
-                  Claim it before someone else does
-                </p>
+          <!-- Error -->
+          <div v-else-if="error" class="py-12 text-center">
+            <UIcon
+              name="i-heroicons-exclamation-circle"
+              class="mx-auto mb-4 h-12 w-12 text-red-500"
+            />
+            <h2
+              class="mb-2 text-xl font-semibold text-gray-900 dark:text-white"
+            >
+              Event Not Found
+            </h2>
+            <p class="mb-4 text-gray-600 dark:text-gray-400">
+              This event may have been deleted or the link is incorrect.
+            </p>
+            <UButton to="/" color="primary" variant="soft"
+              >Back to Home</UButton
+            >
+          </div>
+
+          <!-- Event Content -->
+          <template v-else-if="event">
+            <!-- Sharing Note Banner -->
+            <UAlert
+              v-if="event.sharingNote"
+              color="warning"
+              variant="soft"
+              class="mb-4"
+              icon="i-heroicons-information-circle"
+              :title="event.sharingNote"
+            />
+
+            <!-- CARD 1: Event Info -->
+            <div
+              class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4"
+            >
+              <!-- Location & Date/Time on one line -->
+              <div class="flex items-center justify-between gap-3 mb-3">
+                <div class="flex items-center gap-2 min-w-0">
+                  <UIcon
+                    name="i-heroicons-map-pin"
+                    class="w-4 h-4 text-gray-400 shrink-0"
+                  />
+                  <span
+                    class="font-semibold text-gray-900 dark:text-white truncate"
+                    >{{ event.location }}</span
+                  >
+                </div>
+                <div class="flex items-center gap-1 text-sm shrink-0">
+                  <span
+                    class="font-medium text-primary-600 dark:text-primary-400"
+                    >{{ formatRelativeDay(event.datetime) }}</span
+                  >
+                  <span class="text-gray-400">·</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{
+                    formatTime(event.datetime, event.endDatetime)
+                  }}</span>
+                </div>
               </div>
-            </div>
-            <UButton
-              color="primary"
-              size="lg"
-              block
-              :loading="rsvpLoading"
-              @click="handleClaimSpot"
-            >
-              Claim This Spot
-            </UButton>
-          </div>
 
-          <!-- Response buttons row - always shown except for spot opened up -->
-          <div v-if="!spotOpenedUp" class="flex gap-2">
-            <!-- Waitlist position (replaces I'm In when on waitlist) -->
-            <div
-              v-if="isOnWaitlist"
-              class="flex flex-1 flex-col items-center gap-1 rounded-xl bg-violet-100 px-2 py-3 ring-2 ring-violet-500 dark:bg-violet-900/30"
-            >
-              <UIcon name="i-heroicons-clock" class="h-6 w-6 text-violet-500" />
-              <span
-                class="text-center text-xs font-medium text-violet-700 dark:text-violet-300"
+              <!-- Description -->
+              <p
+                v-if="event.description"
+                class="text-sm text-gray-600 dark:text-gray-400 mb-3"
               >
-                {{ getOrdinalSuffix(waitlistPosition) }} on waitlist
-              </span>
-            </div>
-            <!-- I'm In / You're In / Join Waitlist -->
-            <button
-              v-else
-              type="button"
-              :class="[
-                'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
-                isFull
-                  ? selectedStatus === 'WAITLIST'
-                    ? 'bg-violet-100 ring-2 ring-violet-500 dark:bg-violet-900/30'
-                    : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
-                  : (selectedStatus === 'IN' || isConfirmed)
-                    ? 'bg-emerald-100 ring-2 ring-emerald-500 dark:bg-emerald-900/30'
-                    : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
-              ]"
-              @click="isFull ? handleJoinWaitlist() : selectStatus('IN')"
-            >
-              <UIcon
-                :name="
-                  isFull
-                    ? selectedStatus === 'WAITLIST'
-                      ? 'i-heroicons-clock-solid'
-                      : 'i-heroicons-clock'
-                    : (selectedStatus === 'IN' || isConfirmed)
-                      ? 'i-heroicons-check-circle-solid'
-                      : 'i-heroicons-check-circle'
-                "
-                :class="[
-                  'h-6 w-6',
-                  isFull
-                    ? selectedStatus === 'WAITLIST'
-                      ? 'text-violet-500'
-                      : 'text-gray-400'
-                    : (selectedStatus === 'IN' || isConfirmed)
-                      ? 'text-emerald-500'
-                      : 'text-gray-400',
-                ]"
-              />
-              <span
-                :class="[
-                  'text-xs font-medium',
-                  isFull
-                    ? selectedStatus === 'WAITLIST'
-                      ? 'text-violet-700 dark:text-violet-300'
-                      : 'text-gray-600 dark:text-gray-400'
-                    : (selectedStatus === 'IN' || isConfirmed)
-                      ? 'text-emerald-700 dark:text-emerald-300'
-                      : 'text-gray-600 dark:text-gray-400',
-                ]"
-              >
-                {{ isFull ? 'Join Waitlist' : (isConfirmed ? "You're In" : "I'm In") }}
-              </span>
-            </button>
+                {{ event.description }}
+              </p>
 
-            <!-- Out / Drop Out -->
-            <button
-              type="button"
-              :class="[
-                'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
-                selectedStatus === 'OUT'
-                  ? 'bg-red-100 ring-2 ring-red-500 dark:bg-red-900/30'
-                  : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
-              ]"
-              @click="selectStatus('OUT')"
-            >
-              <UIcon
-                :name="
-                  selectedStatus === 'OUT'
-                    ? 'i-heroicons-x-circle-solid'
-                    : 'i-heroicons-x-circle'
-                "
-                :class="[
-                  'h-6 w-6',
-                  selectedStatus === 'OUT' ? 'text-red-500' : 'text-gray-400',
-                ]"
-              />
-              <span
-                :class="[
-                  'text-xs font-medium text-center',
-                  selectedStatus === 'OUT'
-                    ? 'text-red-700 dark:text-red-300'
-                    : 'text-gray-600 dark:text-gray-400',
-                ]"
-              >
-                {{ selectedStatus === 'OUT' ? 'Out' : 'Drop Out' }}
-              </span>
-            </button>
-
-            <!-- Maybe -->
-            <button
-              type="button"
-              :class="[
-                'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
-                selectedStatus === 'MAYBE'
-                  ? 'bg-amber-100 ring-2 ring-amber-500 dark:bg-amber-900/30'
-                  : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
-              ]"
-              @click="selectStatus('MAYBE')"
-            >
-              <UIcon
-                :name="
-                  selectedStatus === 'MAYBE'
-                    ? 'i-heroicons-question-mark-circle-solid'
-                    : 'i-heroicons-question-mark-circle'
-                "
-                :class="[
-                  'h-6 w-6',
-                  selectedStatus === 'MAYBE'
-                    ? 'text-amber-500'
-                    : 'text-gray-400',
-                ]"
-              />
-              <span
-                :class="[
-                  'text-xs font-medium',
-                  selectedStatus === 'MAYBE'
-                    ? 'text-amber-700 dark:text-amber-300'
-                    : 'text-gray-600 dark:text-gray-400',
-                ]"
-              >
-                Maybe
-              </span>
-            </button>
-
-            <!-- In If... -->
-            <button
-              type="button"
-              :class="[
-                'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
-                selectedStatus === 'IN_IF'
-                  ? 'bg-blue-100 ring-2 ring-blue-500 dark:bg-blue-900/30'
-                  : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
-              ]"
-              @click="selectStatus('IN_IF')"
-            >
-              <UIcon
-                :name="
-                  selectedStatus === 'IN_IF'
-                    ? 'i-heroicons-chat-bubble-left-ellipsis-solid'
-                    : 'i-heroicons-chat-bubble-left-ellipsis'
-                "
-                :class="[
-                  'h-6 w-6',
-                  selectedStatus === 'IN_IF'
-                    ? 'text-blue-500'
-                    : 'text-gray-400',
-                ]"
-              />
-              <span
-                :class="[
-                  'text-xs font-medium',
-                  selectedStatus === 'IN_IF'
-                    ? 'text-blue-700 dark:text-blue-300'
-                    : 'text-gray-600 dark:text-gray-400',
-                ]"
-              >
-                In If...
-              </span>
-            </button>
-          </div>
-
-          <!-- Streamlined Note Field -->
-          <div v-if="selectedStatus || isConfirmed" class="mt-1">
-            <!-- Editing state -->
-            <div
-              v-if="
-                isEditingNote || (selectedStatus === 'IN_IF' && isEditingInIf)
-              "
-              class="relative"
-            >
-              <input
-                ref="noteInputRef"
-                v-model="comment"
-                type="text"
-                :placeholder="
-                  selectedStatus === 'IN_IF'
-                    ? 'What needs to happen?'
-                    : 'Add a note...'
-                "
-                class="focus:border-primary-500 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 pr-20 text-gray-900 placeholder-gray-400 transition-colors focus:ring-0 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                @keydown="handleNoteKeydown"
-                @blur="saveNote()"
-              />
-              <div
-                v-if="comment.trim()"
-                class="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1"
-              >
-                <button
-                  type="button"
-                  class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                  @click="
-                    comment = '';
-                    noteInputRef?.focus();
-                  "
+              <!-- Progress bar with count on same row -->
+              <div class="flex items-center gap-3">
+                <div
+                  class="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
                 >
-                  <UIcon name="i-heroicons-x-mark" class="h-5 w-5" />
-                </button>
+                  <div
+                    class="h-full transition-all duration-300"
+                    :class="isFull ? 'bg-amber-500' : 'bg-emerald-500'"
+                    :style="{
+                      width: `${Math.min(100, ((event.rsvpCount ?? 0) / event.maxPlayers) * 100)}%`,
+                    }"
+                  />
+                </div>
+                <div class="shrink-0">
+                  <span
+                    class="text-lg font-bold"
+                    :class="isFull ? 'text-amber-500' : 'text-primary-600'"
+                    >{{ event.rsvpCount ?? 0 }}</span
+                  >
+                  <span class="text-gray-400">/{{ event.maxPlayers }}</span>
+                </div>
+              </div>
+              <p
+                v-if="isFull"
+                class="text-xs text-amber-600 dark:text-amber-400 mt-1 text-center"
+              >
+                Event is full
+              </p>
+            </div>
+
+            <!-- CARD 2: Are you in? -->
+            <div
+              class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4"
+            >
+              <h3 class="font-semibold text-gray-900 dark:text-white mb-3">
+                {{ isConfirmed ? 'See you there!' : 'Are you in?' }}
+              </h3>
+
+              <!-- RSVP Content -->
+              <!-- Spot opened up banner -->
+              <div
+                v-if="spotOpenedUp"
+                class="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 dark:bg-emerald-900/20 mb-3"
+              >
+                <div class="mb-3 flex items-center gap-3">
+                  <UIcon
+                    name="i-heroicons-sparkles"
+                    class="h-6 w-6 text-emerald-600"
+                  />
+                  <div class="flex-1">
+                    <p
+                      class="font-semibold text-emerald-900 dark:text-emerald-100"
+                    >
+                      A spot opened up!
+                    </p>
+                    <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                      Claim it before someone else does
+                    </p>
+                  </div>
+                </div>
+                <UButton
+                  color="primary"
+                  size="lg"
+                  block
+                  :loading="rsvpLoading"
+                  @click="handleClaimSpot"
+                >
+                  Claim This Spot
+                </UButton>
+              </div>
+
+              <!-- Response buttons row - always shown except for spot opened up -->
+              <div v-if="!spotOpenedUp" class="flex gap-2">
+                <!-- Waitlist position (replaces I'm In when on waitlist) -->
+                <div
+                  v-if="isOnWaitlist"
+                  class="flex flex-1 flex-col items-center gap-1 rounded-xl bg-violet-100 px-2 py-3 ring-2 ring-violet-500 dark:bg-violet-900/30"
+                >
+                  <UIcon
+                    name="i-heroicons-clock"
+                    class="h-6 w-6 text-violet-500"
+                  />
+                  <span
+                    class="text-center text-xs font-medium text-violet-700 dark:text-violet-300"
+                  >
+                    {{ getOrdinalSuffix(waitlistPosition) }} on waitlist
+                  </span>
+                </div>
+                <!-- I'm In / You're In / Join Waitlist -->
                 <button
+                  v-else
                   type="button"
-                  class="rounded-lg p-1.5 transition-colors"
-                  :class="
-                    hasUnsavedNote
-                      ? 'text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20'
-                      : 'text-emerald-500'
-                  "
-                  @click="saveNote"
+                  :class="[
+                    'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
+                    isFull
+                      ? selectedStatus === 'WAITLIST'
+                        ? 'bg-violet-100 ring-2 ring-violet-500 dark:bg-violet-900/30'
+                        : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
+                      : selectedStatus === 'IN' || isConfirmed
+                        ? 'bg-emerald-100 ring-2 ring-emerald-500 dark:bg-emerald-900/30'
+                        : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
+                  ]"
+                  @click="isFull ? handleJoinWaitlist() : selectStatus('IN')"
                 >
                   <UIcon
                     :name="
-                      hasUnsavedNote
-                        ? 'i-heroicons-arrow-up-circle-solid'
-                        : 'i-heroicons-check-circle-solid'
+                      isFull
+                        ? selectedStatus === 'WAITLIST'
+                          ? 'i-heroicons-clock-solid'
+                          : 'i-heroicons-clock'
+                        : selectedStatus === 'IN' || isConfirmed
+                          ? 'i-heroicons-check-circle-solid'
+                          : 'i-heroicons-check-circle'
                     "
-                    class="h-5 w-5"
+                    :class="[
+                      'h-6 w-6',
+                      isFull
+                        ? selectedStatus === 'WAITLIST'
+                          ? 'text-violet-500'
+                          : 'text-gray-400'
+                        : selectedStatus === 'IN' || isConfirmed
+                          ? 'text-emerald-500'
+                          : 'text-gray-400',
+                    ]"
                   />
+                  <span
+                    :class="[
+                      'text-xs font-medium',
+                      isFull
+                        ? selectedStatus === 'WAITLIST'
+                          ? 'text-violet-700 dark:text-violet-300'
+                          : 'text-gray-600 dark:text-gray-400'
+                        : selectedStatus === 'IN' || isConfirmed
+                          ? 'text-emerald-700 dark:text-emerald-300'
+                          : 'text-gray-600 dark:text-gray-400',
+                    ]"
+                  >
+                    {{
+                      isFull
+                        ? 'Join Waitlist'
+                        : isConfirmed
+                          ? "You're In"
+                          : "I'm In"
+                    }}
+                  </span>
+                </button>
+
+                <!-- Out / Drop Out -->
+                <button
+                  type="button"
+                  :class="[
+                    'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
+                    selectedStatus === 'OUT'
+                      ? 'bg-red-100 ring-2 ring-red-500 dark:bg-red-900/30'
+                      : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
+                  ]"
+                  @click="selectStatus('OUT')"
+                >
+                  <UIcon
+                    :name="
+                      selectedStatus === 'OUT'
+                        ? 'i-heroicons-x-circle-solid'
+                        : 'i-heroicons-x-circle'
+                    "
+                    :class="[
+                      'h-6 w-6',
+                      selectedStatus === 'OUT'
+                        ? 'text-red-500'
+                        : 'text-gray-400',
+                    ]"
+                  />
+                  <span
+                    :class="[
+                      'text-xs font-medium text-center',
+                      selectedStatus === 'OUT'
+                        ? 'text-red-700 dark:text-red-300'
+                        : 'text-gray-600 dark:text-gray-400',
+                    ]"
+                  >
+                    {{ selectedStatus === 'OUT' ? 'Out' : 'Drop Out' }}
+                  </span>
+                </button>
+
+                <!-- Maybe -->
+                <button
+                  type="button"
+                  :class="[
+                    'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
+                    selectedStatus === 'MAYBE'
+                      ? 'bg-amber-100 ring-2 ring-amber-500 dark:bg-amber-900/30'
+                      : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
+                  ]"
+                  @click="selectStatus('MAYBE')"
+                >
+                  <UIcon
+                    :name="
+                      selectedStatus === 'MAYBE'
+                        ? 'i-heroicons-question-mark-circle-solid'
+                        : 'i-heroicons-question-mark-circle'
+                    "
+                    :class="[
+                      'h-6 w-6',
+                      selectedStatus === 'MAYBE'
+                        ? 'text-amber-500'
+                        : 'text-gray-400',
+                    ]"
+                  />
+                  <span
+                    :class="[
+                      'text-xs font-medium',
+                      selectedStatus === 'MAYBE'
+                        ? 'text-amber-700 dark:text-amber-300'
+                        : 'text-gray-600 dark:text-gray-400',
+                    ]"
+                  >
+                    Maybe
+                  </span>
+                </button>
+
+                <!-- In If... -->
+                <button
+                  type="button"
+                  :class="[
+                    'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
+                    selectedStatus === 'IN_IF'
+                      ? 'bg-blue-100 ring-2 ring-blue-500 dark:bg-blue-900/30'
+                      : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
+                  ]"
+                  @click="selectStatus('IN_IF')"
+                >
+                  <UIcon
+                    :name="
+                      selectedStatus === 'IN_IF'
+                        ? 'i-heroicons-chat-bubble-left-ellipsis-solid'
+                        : 'i-heroicons-chat-bubble-left-ellipsis'
+                    "
+                    :class="[
+                      'h-6 w-6',
+                      selectedStatus === 'IN_IF'
+                        ? 'text-blue-500'
+                        : 'text-gray-400',
+                    ]"
+                  />
+                  <span
+                    :class="[
+                      'text-xs font-medium',
+                      selectedStatus === 'IN_IF'
+                        ? 'text-blue-700 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-400',
+                    ]"
+                  >
+                    In If...
+                  </span>
+                </button>
+              </div>
+
+              <!-- Streamlined Note Field -->
+              <div v-if="selectedStatus || isConfirmed" class="mt-1">
+                <!-- Editing state -->
+                <div
+                  v-if="
+                    isEditingNote ||
+                    (selectedStatus === 'IN_IF' && isEditingInIf)
+                  "
+                  class="relative"
+                >
+                  <input
+                    ref="noteInputRef"
+                    v-model="comment"
+                    type="text"
+                    :placeholder="
+                      selectedStatus === 'IN_IF'
+                        ? 'What needs to happen?'
+                        : 'Add a note...'
+                    "
+                    class="focus:border-primary-500 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 pr-20 text-gray-900 placeholder-gray-400 transition-colors focus:ring-0 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    @keydown="handleNoteKeydown"
+                    @blur="saveNote()"
+                  />
+                  <div
+                    v-if="comment.trim()"
+                    class="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1"
+                  >
+                    <button
+                      type="button"
+                      class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                      @click="
+                        comment = '';
+                        noteInputRef?.focus();
+                      "
+                    >
+                      <UIcon name="i-heroicons-x-mark" class="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded-lg p-1.5 transition-colors"
+                      :class="
+                        hasUnsavedNote
+                          ? 'text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20'
+                          : 'text-emerald-500'
+                      "
+                      @click="saveNote"
+                    >
+                      <UIcon
+                        :name="
+                          hasUnsavedNote
+                            ? 'i-heroicons-arrow-up-circle-solid'
+                            : 'i-heroicons-check-circle-solid'
+                        "
+                        class="h-5 w-5"
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Display state (not editing, has note) -->
+                <button
+                  v-else-if="
+                    comment &&
+                    !isEditingNote &&
+                    !(
+                      selectedStatus === 'IN_IF' &&
+                      (isEditingInIf || hasUnsavedInIfComment())
+                    )
+                  "
+                  type="button"
+                  class="group flex w-full items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
+                  @click="
+                    if (selectedStatus === 'IN_IF') {
+                      isEditingInIf = true;
+                      nextTick(() => {
+                        noteInputRef?.focus();
+                      });
+                    } else {
+                      startEditingNote();
+                    }
+                  "
+                >
+                  <UIcon
+                    name="i-heroicons-chat-bubble-bottom-center-text"
+                    class="h-4 w-4 flex-shrink-0 text-gray-400"
+                  />
+                  <span
+                    class="flex-1 truncate text-sm text-gray-600 italic dark:text-gray-400"
+                    >"{{ comment }}"</span
+                  >
+                  <UIcon
+                    name="i-heroicons-pencil"
+                    class="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
+                  />
+                </button>
+
+                <!-- Add note button (no note yet) -->
+                <button
+                  v-else
+                  type="button"
+                  class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                  @click="
+                    if (selectedStatus === 'IN_IF') {
+                      isEditingInIf = true;
+                      nextTick(() => {
+                        noteInputRef?.focus();
+                      });
+                    } else {
+                      startEditingNote();
+                    }
+                  "
+                >
+                  <UIcon name="i-heroicons-plus" class="h-4 w-4" />
+                  Add note
                 </button>
               </div>
             </div>
 
-            <!-- Display state (not editing, has note) -->
-            <button
-              v-else-if="
-                comment &&
-                !isEditingNote &&
-                !(
-                  selectedStatus === 'IN_IF' &&
-                  (isEditingInIf || hasUnsavedInIfComment())
-                )
-              "
-              type="button"
-              class="group flex w-full items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
-              @click="
-                if (selectedStatus === 'IN_IF') {
-                  isEditingInIf = true;
-                  nextTick(() => {
-                    noteInputRef?.focus();
-                  });
-                } else {
-                  startEditingNote();
-                }
-              "
+            <!-- CARD 3: Who's In -->
+            <div
+              v-if="event.rsvps && event.rsvps.length > 0"
+              class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4"
             >
-              <UIcon
-                name="i-heroicons-chat-bubble-bottom-center-text"
-                class="h-4 w-4 flex-shrink-0 text-gray-400"
+              <UTabs
+                v-model="activeResponseTab"
+                :items="responseTabs"
+                :content="false"
+                variant="link"
+                class="w-full"
               />
-              <span
-                class="flex-1 truncate text-sm text-gray-600 italic dark:text-gray-400"
-                >"{{ comment }}"</span
-              >
-              <UIcon
-                name="i-heroicons-pencil"
-                class="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
-              />
-            </button>
 
-            <!-- Add note button (no note yet) -->
-            <button
-              v-else
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-              @click="
-                if (selectedStatus === 'IN_IF') {
-                  isEditingInIf = true;
-                  nextTick(() => {
-                    noteInputRef?.focus();
-                  });
-                } else {
-                  startEditingNote();
-                }
-              "
+              <!-- Response List with animations -->
+              <div class="mt-4">
+                <div
+                  v-if="activeRsvpList.length === 0"
+                  class="py-6 text-center text-gray-500"
+                >
+                  No responses yet
+                </div>
+                <TransitionGroup name="rsvp-list" tag="div" class="space-y-2">
+                  <div
+                    v-for="rsvp in activeRsvpList"
+                    :key="rsvp.id"
+                    :class="[
+                      'rounded-lg px-3 py-2 transition-all duration-200',
+                      activeResponseTab === 'in'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20'
+                        : '',
+                      activeResponseTab === 'out'
+                        ? 'bg-red-50 dark:bg-red-900/20'
+                        : '',
+                      activeResponseTab === 'maybe'
+                        ? 'bg-amber-50 dark:bg-amber-900/20'
+                        : '',
+                      activeResponseTab === 'waitlist'
+                        ? 'bg-violet-50 dark:bg-violet-900/20'
+                        : '',
+                    ]"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span
+                        :class="[
+                          'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
+                          activeResponseTab === 'in'
+                            ? 'bg-emerald-200 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-300'
+                            : '',
+                          activeResponseTab === 'out'
+                            ? 'bg-red-200 text-red-700 dark:bg-red-800 dark:text-red-300'
+                            : '',
+                          activeResponseTab === 'maybe'
+                            ? 'bg-amber-200 text-amber-700 dark:bg-amber-800 dark:text-amber-300'
+                            : '',
+                          activeResponseTab === 'waitlist'
+                            ? 'bg-violet-200 text-violet-700 dark:bg-violet-800 dark:text-violet-300'
+                            : '',
+                        ]"
+                      >
+                        {{ getInitials(rsvp.name) }}
+                      </span>
+                      <span
+                        :class="[
+                          'text-sm flex-1',
+                          activeResponseTab === 'in'
+                            ? 'text-emerald-700 dark:text-emerald-300'
+                            : '',
+                          activeResponseTab === 'out'
+                            ? 'text-red-700 dark:text-red-300'
+                            : '',
+                          activeResponseTab === 'maybe'
+                            ? 'text-amber-700 dark:text-amber-300'
+                            : '',
+                          activeResponseTab === 'waitlist'
+                            ? 'text-violet-700 dark:text-violet-300'
+                            : '',
+                        ]"
+                      >
+                        {{ rsvp.name }}
+                      </span>
+                      <UBadge
+                        v-if="rsvp.status === 'IN_IF'"
+                        label="If..."
+                        color="info"
+                        variant="subtle"
+                        size="xs"
+                      />
+                      <UBadge
+                        v-if="rsvp.userId === event.organizer?.id"
+                        label="Organizer"
+                        color="primary"
+                        variant="subtle"
+                        size="xs"
+                      />
+                      <!-- Groups button (organizer only) -->
+                      <button
+                        v-if="event.isOrganizer"
+                        class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ml-auto"
+                        title="Manage groups"
+                        @click.stop="openManageGroupsModal(rsvp.id, rsvp.name)"
+                      >
+                        <UIcon
+                          name="i-heroicons-user-group"
+                          class="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        />
+                      </button>
+                    </div>
+                    <p
+                      v-if="rsvp.comment"
+                      :class="[
+                        'mt-1 pl-8 text-sm italic',
+                        activeResponseTab === 'in'
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : '',
+                        activeResponseTab === 'out'
+                          ? 'text-red-600 dark:text-red-400'
+                          : '',
+                        activeResponseTab === 'maybe'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : '',
+                        activeResponseTab === 'waitlist'
+                          ? 'text-violet-600 dark:text-violet-400'
+                          : '',
+                      ]"
+                    >
+                      "{{ rsvp.comment }}"
+                    </p>
+                  </div>
+                </TransitionGroup>
+              </div>
+
+              <!-- Message Players Button (Organizer only) -->
+              <div v-if="event.isOrganizer" class="mt-4">
+                <UButton
+                  color="neutral"
+                  variant="soft"
+                  icon="i-heroicons-chat-bubble-left-ellipsis"
+                  label="Message players"
+                  block
+                  size="lg"
+                  @click="showMessageModal = true"
+                />
+              </div>
+            </div>
+
+            <!-- Activity Log Section -->
+            <div
+              v-if="displayedActivities.length > 0"
+              class="mt-4 px-4 py-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm"
             >
-              <UIcon name="i-heroicons-plus" class="h-4 w-4" />
-              Add note
-            </button>
-          </div>
-        </div>
+              <div class="mb-3 flex items-center justify-between">
+                <h3
+                  class="text-sm font-medium text-gray-500 dark:text-gray-400"
+                >
+                  Recent Activity
+                </h3>
+                <div v-if="isConnected" class="flex items-center gap-1.5">
+                  <span
+                    class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"
+                  />
+                  <span class="text-xs text-gray-400">Live</span>
+                </div>
+              </div>
+              <TransitionGroup name="activity-list" tag="ul" class="space-y-2">
+                <li
+                  v-for="activity in displayedActivities"
+                  :key="activity.id"
+                  class="text-sm"
+                >
+                  <div class="flex items-center gap-2">
+                    <span
+                      :class="[
+                        'h-1.5 w-1.5 flex-shrink-0 rounded-full',
+                        activity.type === 'RSVP_IN' ? 'bg-emerald-500' : '',
+                        activity.type === 'RSVP_OUT' ? 'bg-red-500' : '',
+                        activity.type === 'RSVP_MAYBE' ? 'bg-amber-500' : '',
+                        activity.type === 'RSVP_WAITLIST'
+                          ? 'bg-violet-500'
+                          : '',
+                        activity.type === 'RSVP_IN_IF' ? 'bg-blue-500' : '',
+                        activity.type === 'EVENT_EDITED' ? 'bg-gray-500' : '',
+                      ]"
+                    />
+                    <span class="text-gray-700 dark:text-gray-300">{{
+                      formatActivityMessage(activity)
+                    }}</span>
+                    <span class="ml-auto flex-shrink-0 text-xs text-gray-400">{{
+                      formatTimeAgo(activity.createdAt)
+                    }}</span>
+                  </div>
+                  <p
+                    v-if="getActivityComment(activity)"
+                    class="mt-0.5 ml-3.5 truncate text-xs text-gray-500 italic dark:text-gray-400"
+                  >
+                    "{{ getActivityComment(activity) }}"
+                  </p>
+                </li>
+              </TransitionGroup>
+            </div>
+          </template>
 
-        <!-- CARD 3: Who's In -->
-        <div
-          v-if="event.rsvps && event.rsvps.length > 0"
-          class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4"
-        >
-          <UTabs
-            v-model="activeResponseTab"
-            :items="responseTabs"
-            :content="false"
-            variant="link"
-            class="w-full"
+          <!-- Auth Modal -->
+          <AuthModal
+            v-model:open="showAuthModal"
+            @authenticated="submitPendingRsvp"
           />
 
-          <!-- Response List with animations -->
-          <div class="mt-4">
-            <div
-              v-if="activeRsvpList.length === 0"
-              class="py-6 text-center text-gray-500"
-            >
-              No responses yet
-            </div>
-            <TransitionGroup name="rsvp-list" tag="div" class="space-y-2">
-              <div
-                v-for="rsvp in activeRsvpList"
-                :key="rsvp.id"
-                :class="[
-                  'rounded-lg px-3 py-2 transition-all duration-200',
-                  activeResponseTab === 'in'
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20'
-                    : '',
-                  activeResponseTab === 'out'
-                    ? 'bg-red-50 dark:bg-red-900/20'
-                    : '',
-                  activeResponseTab === 'maybe'
-                    ? 'bg-amber-50 dark:bg-amber-900/20'
-                    : '',
-                  activeResponseTab === 'waitlist'
-                    ? 'bg-violet-50 dark:bg-violet-900/20'
-                    : '',
-                ]"
-              >
-                <div class="flex items-center gap-2">
-                  <span
-                    :class="[
-                      'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
-                      activeResponseTab === 'in'
-                        ? 'bg-emerald-200 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-300'
-                        : '',
-                      activeResponseTab === 'out'
-                        ? 'bg-red-200 text-red-700 dark:bg-red-800 dark:text-red-300'
-                        : '',
-                      activeResponseTab === 'maybe'
-                        ? 'bg-amber-200 text-amber-700 dark:bg-amber-800 dark:text-amber-300'
-                        : '',
-                      activeResponseTab === 'waitlist'
-                        ? 'bg-violet-200 text-violet-700 dark:bg-violet-800 dark:text-violet-300'
-                        : '',
-                    ]"
-                  >
-                    {{ getInitials(rsvp.name) }}
-                  </span>
-                  <span
-                    :class="[
-                      'text-sm flex-1',
-                      activeResponseTab === 'in'
-                        ? 'text-emerald-700 dark:text-emerald-300'
-                        : '',
-                      activeResponseTab === 'out'
-                        ? 'text-red-700 dark:text-red-300'
-                        : '',
-                      activeResponseTab === 'maybe'
-                        ? 'text-amber-700 dark:text-amber-300'
-                        : '',
-                      activeResponseTab === 'waitlist'
-                        ? 'text-violet-700 dark:text-violet-300'
-                        : '',
-                    ]"
-                  >
-                    {{ rsvp.name }}
-                  </span>
-                  <UBadge
-                    v-if="rsvp.status === 'IN_IF'"
-                    label="If..."
-                    color="info"
-                    variant="subtle"
-                    size="xs"
+          <!-- Drop Out Modal -->
+          <UModal
+            v-model:open="showDropOutModal"
+            :ui="{ width: 'sm:max-w-md' }"
+          >
+            <template #body>
+              <div class="text-center py-2">
+                <!-- Icon -->
+                <div
+                  class="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4"
+                >
+                  <UIcon
+                    name="i-heroicons-arrow-right-start-on-rectangle"
+                    class="w-8 h-8 text-red-500"
                   />
-                  <UBadge
-                    v-if="rsvp.userId === event.organizer?.id"
-                    label="Organizer"
+                </div>
+
+                <!-- Title -->
+                <h3
+                  class="text-xl font-bold text-gray-900 dark:text-white mb-2"
+                >
+                  Drop out?
+                </h3>
+
+                <!-- Description -->
+                <p class="text-gray-500 dark:text-gray-400 mb-4">
+                  Let the group know so someone else can take your spot.
+                </p>
+
+                <!-- Waitlist badge -->
+                <div
+                  v-if="hasWaitlist && event"
+                  class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-100 dark:bg-violet-900/30 mb-6"
+                >
+                  <UIcon
+                    name="i-heroicons-clock"
+                    class="w-4 h-4 text-violet-500"
+                  />
+                  <span
+                    class="text-sm font-medium text-violet-700 dark:text-violet-300"
+                  >
+                    {{ event.waitlistCount ?? 0 }} on waitlist
+                  </span>
+                </div>
+
+                <!-- Actions -->
+                <div class="space-y-3">
+                  <UButton
                     color="primary"
-                    variant="subtle"
-                    size="xs"
+                    size="lg"
+                    block
+                    icon="i-heroicons-chat-bubble-left-ellipsis"
+                    :label="
+                      hasWaitlist
+                        ? 'Drop Out & Text Everyone'
+                        : 'Drop Out & Text Group'
+                    "
+                    :loading="droppingOut"
+                    class="h-14 rounded-xl"
+                    @click="handleDropOut(true)"
                   />
-                  <!-- Groups button (organizer only) -->
+                  <UButton
+                    color="neutral"
+                    variant="soft"
+                    size="lg"
+                    block
+                    label="Just Drop Out"
+                    :loading="droppingOut"
+                    class="h-12 rounded-xl"
+                    @click="handleDropOut(false)"
+                  />
                   <button
-                    v-if="event.isOrganizer"
-                    class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ml-auto"
-                    title="Manage groups"
-                    @click.stop="openManageGroupsModal(rsvp.id, rsvp.name)"
+                    class="w-full py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    @click="
+                      showDropOutModal = false;
+                      pendingStatusChange = null;
+                    "
                   >
-                    <UIcon name="i-heroicons-user-group" class="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                    Cancel
                   </button>
                 </div>
-                <p
-                  v-if="rsvp.comment"
-                  :class="[
-                    'mt-1 pl-8 text-sm italic',
-                    activeResponseTab === 'in'
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : '',
-                    activeResponseTab === 'out'
-                      ? 'text-red-600 dark:text-red-400'
-                      : '',
-                    activeResponseTab === 'maybe'
-                      ? 'text-amber-600 dark:text-amber-400'
-                      : '',
-                    activeResponseTab === 'waitlist'
-                      ? 'text-violet-600 dark:text-violet-400'
-                      : '',
-                  ]"
+              </div>
+            </template>
+          </UModal>
+
+          <!-- Edit Warning Modal -->
+          <UModal v-model:open="showEditWarningModal" title="Edit Event?">
+            <template #body>
+              <div class="flex items-start gap-3">
+                <div
+                  class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30"
                 >
-                  "{{ rsvp.comment }}"
+                  <UIcon
+                    name="i-heroicons-exclamation-triangle"
+                    class="h-5 w-5 text-amber-600"
+                  />
+                </div>
+                <div>
+                  <p class="text-gray-600 dark:text-gray-400">
+                    {{ event?.rsvpCount ?? 0 }}
+                    {{
+                      (event?.rsvpCount ?? 0) === 1
+                        ? 'person has'
+                        : 'people have'
+                    }}
+                    already RSVP'd to this event.
+                  </p>
+                  <p class="mt-2 text-sm text-gray-500">
+                    Editing may cause confusion. Changes will be logged in the
+                    activity feed.
+                  </p>
+                </div>
+              </div>
+            </template>
+            <template #footer>
+              <div class="flex justify-end gap-3">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  label="Cancel"
+                  @click="showEditWarningModal = false"
+                />
+                <UButton
+                  color="primary"
+                  label="Edit Anyway"
+                  @click="confirmEdit"
+                />
+              </div>
+            </template>
+          </UModal>
+
+          <!-- Edit Event Slideover -->
+          <USlideover
+            v-model:open="showEditModal"
+            side="right"
+            :ui="{ content: 'max-w-lg' }"
+          >
+            <template #header>
+              <div class="flex items-center justify-between w-full">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                  Edit Event
+                </h2>
+                <button
+                  class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  title="Delete event"
+                  @click="
+                    showDeleteModal = true;
+                    showEditModal = false;
+                  "
+                >
+                  <UIcon name="i-heroicons-trash" class="w-5 h-5" />
+                </button>
+              </div>
+            </template>
+            <template #body>
+              <div class="px-4 pt-4">
+                <EventForm
+                  :initial-data="editFormData"
+                  :submitting="saving"
+                  submit-label="Save Changes"
+                  inline
+                  @submit="saveEvent"
+                  @cancel="showEditModal = false"
+                />
+              </div>
+            </template>
+          </USlideover>
+
+          <!-- Save to Group Modal -->
+          <UModal v-model:open="showSaveGroupModal" title="Save to Group">
+            <template #body>
+              <div class="space-y-4">
+                <UFormField label="Group Name">
+                  <UInput
+                    v-model="newGroupName"
+                    placeholder="e.g., Sunday Hoopers"
+                    size="lg"
+                    autofocus
+                  />
+                </UFormField>
+                <p class="text-sm text-gray-500">
+                  {{ rsvpsIn.length }} contacts will be added to this group.
                 </p>
               </div>
-            </TransitionGroup>
-          </div>
-
-          <!-- Message Players Button (Organizer only) -->
-          <div v-if="event.isOrganizer" class="mt-4">
-            <UButton
-              color="neutral"
-              variant="soft"
-              icon="i-heroicons-chat-bubble-left-ellipsis"
-              label="Message players"
-              block
-              size="lg"
-              @click="showMessageModal = true"
-            />
-          </div>
-        </div>
-
-        <!-- Activity Log Section -->
-        <div
-          v-if="displayedActivities.length > 0"
-          class="mt-4 px-4 py-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm"
-        >
-          <div class="mb-3 flex items-center justify-between">
-            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Recent Activity
-            </h3>
-            <div v-if="isConnected" class="flex items-center gap-1.5">
-              <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-              <span class="text-xs text-gray-400">Live</span>
-            </div>
-          </div>
-          <TransitionGroup name="activity-list" tag="ul" class="space-y-2">
-            <li
-              v-for="activity in displayedActivities"
-              :key="activity.id"
-              class="text-sm"
-            >
-              <div class="flex items-center gap-2">
-                <span
-                  :class="[
-                    'h-1.5 w-1.5 flex-shrink-0 rounded-full',
-                    activity.type === 'RSVP_IN' ? 'bg-emerald-500' : '',
-                    activity.type === 'RSVP_OUT' ? 'bg-red-500' : '',
-                    activity.type === 'RSVP_MAYBE' ? 'bg-amber-500' : '',
-                    activity.type === 'RSVP_WAITLIST' ? 'bg-violet-500' : '',
-                    activity.type === 'RSVP_IN_IF' ? 'bg-blue-500' : '',
-                    activity.type === 'EVENT_EDITED' ? 'bg-gray-500' : '',
-                  ]"
+            </template>
+            <template #footer>
+              <div class="flex justify-end gap-3">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  label="Cancel"
+                  @click="showSaveGroupModal = false"
                 />
-                <span class="text-gray-700 dark:text-gray-300">{{
-                  formatActivityMessage(activity)
-                }}</span>
-                <span class="ml-auto flex-shrink-0 text-xs text-gray-400">{{
-                  formatTimeAgo(activity.createdAt)
-                }}</span>
+                <UButton
+                  color="primary"
+                  label="Create Group"
+                  :loading="savingGroup"
+                  :disabled="!newGroupName.trim()"
+                  @click="saveToGroup"
+                />
               </div>
-              <p
-                v-if="getActivityComment(activity)"
-                class="mt-0.5 ml-3.5 truncate text-xs text-gray-500 italic dark:text-gray-400"
-              >
-                "{{ getActivityComment(activity) }}"
-              </p>
-            </li>
-          </TransitionGroup>
-        </div>
-      </template>
+            </template>
+          </UModal>
 
-      <!-- Auth Modal -->
-      <AuthModal
-        v-model:open="showAuthModal"
-        @authenticated="submitPendingRsvp"
-      />
+          <!-- Delete Confirmation Modal -->
+          <UModal v-model:open="showDeleteModal" title="Delete Event?">
+            <template #body>
+              <div class="text-center py-2">
+                <div
+                  class="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4"
+                >
+                  <UIcon
+                    name="i-heroicons-trash"
+                    class="w-8 h-8 text-red-500"
+                  />
+                </div>
+                <h3
+                  class="text-xl font-bold text-gray-900 dark:text-white mb-2"
+                >
+                  Delete this event?
+                </h3>
+                <p class="text-gray-500 dark:text-gray-400 mb-6">
+                  This action cannot be undone. All RSVPs will be permanently
+                  removed.
+                </p>
+                <div class="space-y-3">
+                  <UButton
+                    color="error"
+                    size="lg"
+                    block
+                    icon="i-heroicons-trash"
+                    label="Delete Event"
+                    :loading="deleting"
+                    class="h-14 rounded-xl"
+                    @click="deleteEvent"
+                  />
+                  <button
+                    class="w-full py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    @click="
+                      showDeleteModal = false;
+                      showEditModal = true;
+                    "
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </template>
+          </UModal>
 
-      <!-- Drop Out Modal -->
-      <UModal v-model:open="showDropOutModal" :ui="{ width: 'sm:max-w-md' }">
-        <template #body>
-          <div class="text-center py-2">
-            <!-- Icon -->
-            <div
-              class="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4"
-            >
-              <UIcon
-                name="i-heroicons-arrow-right-start-on-rectangle"
-                class="w-8 h-8 text-red-500"
-              />
-            </div>
+          <!-- Share Modal -->
+          <EventShareModal
+            v-if="event"
+            v-model:open="showShareModal"
+            :event="{
+              slug: event.slug,
+              datetime: event.datetime,
+              endDatetime: event.endDatetime,
+              maxPlayers: event.maxPlayers,
+              rsvpCount: event.rsvpCount,
+            }"
+          />
 
-            <!-- Title -->
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Drop out?
-            </h3>
+          <!-- Message Players Modal -->
+          <EventMessageModal
+            v-if="event"
+            v-model:open="showMessageModal"
+            :event="{
+              slug: event.slug,
+              title: event.title,
+              datetime: event.datetime,
+              endDatetime: event.endDatetime,
+              location: event.location,
+              isOrganizer: event.isOrganizer,
+            }"
+            :rsvps="
+              event.rsvps?.map((r) => ({
+                id: r.id,
+                status: r.status,
+                name: r.name,
+                phone: null,
+              })) || []
+            "
+          />
 
-            <!-- Description -->
-            <p class="text-gray-500 dark:text-gray-400 mb-4">
-              Let the group know so someone else can take your spot.
-            </p>
-
-            <!-- Waitlist badge -->
-            <div
-              v-if="hasWaitlist && event"
-              class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-100 dark:bg-violet-900/30 mb-6"
-            >
-              <UIcon name="i-heroicons-clock" class="w-4 h-4 text-violet-500" />
-              <span
-                class="text-sm font-medium text-violet-700 dark:text-violet-300"
-              >
-                {{ event.waitlistCount ?? 0 }} on waitlist
-              </span>
-            </div>
-
-            <!-- Actions -->
-            <div class="space-y-3">
-              <UButton
-                color="primary"
-                size="lg"
-                block
-                icon="i-heroicons-chat-bubble-left-ellipsis"
-                :label="
-                  hasWaitlist
-                    ? 'Drop Out & Text Everyone'
-                    : 'Drop Out & Text Group'
-                "
-                :loading="droppingOut"
-                class="h-14 rounded-xl"
-                @click="handleDropOut(true)"
-              />
-              <UButton
-                color="neutral"
-                variant="soft"
-                size="lg"
-                block
-                label="Just Drop Out"
-                :loading="droppingOut"
-                class="h-12 rounded-xl"
-                @click="handleDropOut(false)"
-              />
-              <button
-                class="w-full py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                @click="showDropOutModal = false; pendingStatusChange = null"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </template>
-      </UModal>
-
-      <!-- Edit Warning Modal -->
-      <UModal v-model:open="showEditWarningModal" title="Edit Event?">
-        <template #body>
-          <div class="flex items-start gap-3">
-            <div
-              class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30"
-            >
-              <UIcon
-                name="i-heroicons-exclamation-triangle"
-                class="h-5 w-5 text-amber-600"
-              />
-            </div>
-            <div>
-              <p class="text-gray-600 dark:text-gray-400">
-                {{ event?.rsvpCount ?? 0 }}
-                {{
-                  (event?.rsvpCount ?? 0) === 1 ? 'person has' : 'people have'
-                }}
-                already RSVP'd to this event.
-              </p>
-              <p class="mt-2 text-sm text-gray-500">
-                Editing may cause confusion. Changes will be logged in the
-                activity feed.
-              </p>
-            </div>
-          </div>
-        </template>
-        <template #footer>
-          <div class="flex justify-end gap-3">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              label="Cancel"
-              @click="showEditWarningModal = false"
-            />
-            <UButton color="primary" label="Edit Anyway" @click="confirmEdit" />
-          </div>
-        </template>
-      </UModal>
-
-      <!-- Edit Event Slideover -->
-      <USlideover
-        v-model:open="showEditModal"
-        side="right"
-        :ui="{ content: 'max-w-lg' }"
-      >
-        <template #header>
-          <div class="flex items-center justify-between w-full">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-              Edit Event
-            </h2>
-            <button
-              class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              title="Delete event"
-              @click="
-                showDeleteModal = true;
-                showEditModal = false;
-              "
-            >
-              <UIcon name="i-heroicons-trash" class="w-5 h-5" />
-            </button>
-          </div>
-        </template>
-        <template #body>
-          <div class="px-4 pt-4">
-            <EventForm
-              :initial-data="editFormData"
-              :submitting="saving"
-              submit-label="Save Changes"
-              inline
-              @submit="saveEvent"
-              @cancel="showEditModal = false"
-            />
-          </div>
-        </template>
-      </USlideover>
-
-      <!-- Save to Group Modal -->
-      <UModal v-model:open="showSaveGroupModal" title="Save to Group">
-        <template #body>
-          <div class="space-y-4">
-            <UFormField label="Group Name">
-              <UInput
-                v-model="newGroupName"
-                placeholder="e.g., Sunday Hoopers"
-                size="lg"
-                autofocus
-              />
-            </UFormField>
-            <p class="text-sm text-gray-500">
-              {{ rsvpsIn.length }} contacts will be added to this group.
-            </p>
-          </div>
-        </template>
-        <template #footer>
-          <div class="flex justify-end gap-3">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              label="Cancel"
-              @click="showSaveGroupModal = false"
-            />
-            <UButton
-              color="primary"
-              label="Create Group"
-              :loading="savingGroup"
-              :disabled="!newGroupName.trim()"
-              @click="saveToGroup"
-            />
-          </div>
-        </template>
-      </UModal>
-
-      <!-- Delete Confirmation Modal -->
-      <UModal v-model:open="showDeleteModal" title="Delete Event?">
-        <template #body>
-          <div class="text-center py-2">
-            <div
-              class="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4"
-            >
-              <UIcon name="i-heroicons-trash" class="w-8 h-8 text-red-500" />
-            </div>
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Delete this event?
-            </h3>
-            <p class="text-gray-500 dark:text-gray-400 mb-6">
-              This action cannot be undone. All RSVPs will be permanently
-              removed.
-            </p>
-            <div class="space-y-3">
-              <UButton
-                color="error"
-                size="lg"
-                block
-                icon="i-heroicons-trash"
-                label="Delete Event"
-                :loading="deleting"
-                class="h-14 rounded-xl"
-                @click="deleteEvent"
-              />
-              <button
-                class="w-full py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                @click="
-                  showDeleteModal = false;
-                  showEditModal = true;
-                "
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </template>
-      </UModal>
-
-      <!-- Share Modal -->
-      <EventShareModal
-        v-if="event"
-        v-model:open="showShareModal"
-        :event="{
-          slug: event.slug,
-          datetime: event.datetime,
-          endDatetime: event.endDatetime,
-          maxPlayers: event.maxPlayers,
-          rsvpCount: event.rsvpCount,
-        }"
-      />
-
-      <!-- Message Players Modal -->
-      <EventMessageModal
-        v-if="event"
-        v-model:open="showMessageModal"
-        :event="{
-          slug: event.slug,
-          title: event.title,
-          datetime: event.datetime,
-          endDatetime: event.endDatetime,
-          location: event.location,
-          isOrganizer: event.isOrganizer,
-        }"
-        :rsvps="
-          event.rsvps?.map((r) => ({
-            id: r.id,
-            status: r.status,
-            name: r.name,
-            phone: null,
-          })) || []
-        "
-      />
-
-      <!-- Manage Groups Modal -->
-      <UModal v-model:open="showManageGroupsModal" :ui="{ width: 'sm:max-w-md' }">
-        <template #header>
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-              <UIcon name="i-heroicons-user-group" class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
-              <h3 class="font-semibold text-gray-900 dark:text-white">Manage Groups</h3>
-              <p v-if="selectedRsvpForGroups" class="text-sm text-gray-500">{{ selectedRsvpForGroups.name }}</p>
-            </div>
-          </div>
-        </template>
-        <template #body>
-          <!-- Loading -->
-          <div v-if="loadingRsvpDetails" class="flex justify-center py-8">
-            <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-gray-400" />
-          </div>
-
-          <!-- No phone warning -->
-          <div v-else-if="selectedRsvpForGroups && !selectedRsvpForGroups.phone" class="text-center py-6">
-            <div class="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-3">
-              <UIcon name="i-heroicons-exclamation-triangle" class="w-6 h-6 text-amber-500" />
-            </div>
-            <p class="text-gray-600 dark:text-gray-400">
-              This person doesn't have a phone number on record.
-            </p>
-            <p class="text-sm text-gray-500 mt-1">
-              They need to sign up to be added to groups.
-            </p>
-          </div>
-
-          <!-- No groups yet -->
-          <div v-else-if="groupsStore.groups.length === 0" class="text-center py-6">
-            <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">
-              <UIcon name="i-heroicons-user-group" class="w-6 h-6 text-gray-400" />
-            </div>
-            <p class="text-gray-600 dark:text-gray-400 mb-4">
-              You don't have any groups yet.
-            </p>
-            <UButton
-              color="primary"
-              variant="soft"
-              to="/groups"
-              icon="i-heroicons-plus"
-              label="Create a Group"
-              @click="showManageGroupsModal = false"
-            />
-          </div>
-
-          <!-- Group selection -->
-          <div v-else class="space-y-2">
-            <p class="text-sm text-gray-500 mb-3">Select which groups to add this person to:</p>
-            <button
-              v-for="group in groupsStore.groups"
-              :key="group.id"
-              class="w-full flex items-center gap-3 p-3 rounded-xl transition-all"
-              :class="[
-                selectedGroupIds.includes(group.id)
-                  ? 'bg-emerald-50 dark:bg-emerald-900/20 ring-2 ring-emerald-500'
-                  : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'
-              ]"
-              @click="toggleGroup(group.id)"
-            >
-              <div
-                class="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors"
-                :class="[
-                  selectedGroupIds.includes(group.id)
-                    ? 'bg-emerald-500 border-emerald-500'
-                    : 'border-gray-300 dark:border-gray-600'
-                ]"
-              >
+          <!-- Manage Groups Modal -->
+          <UModal
+            v-model:open="showManageGroupsModal"
+            :ui="{ width: 'sm:max-w-md' }"
+          >
+            <template #header>
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center"
+                >
+                  <UIcon
+                    name="i-heroicons-user-group"
+                    class="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                  />
+                </div>
+                <div>
+                  <h3 class="font-semibold text-gray-900 dark:text-white">
+                    Manage Groups
+                  </h3>
+                  <p v-if="selectedRsvpForGroups" class="text-sm text-gray-500">
+                    {{ selectedRsvpForGroups.name }}
+                  </p>
+                </div>
+              </div>
+            </template>
+            <template #body>
+              <!-- Loading -->
+              <div v-if="loadingRsvpDetails" class="flex justify-center py-8">
                 <UIcon
-                  v-if="selectedGroupIds.includes(group.id)"
-                  name="i-heroicons-check"
-                  class="w-3 h-3 text-white"
+                  name="i-heroicons-arrow-path"
+                  class="w-6 h-6 animate-spin text-gray-400"
                 />
               </div>
-              <div class="flex-1 text-left">
-                <p class="font-medium text-gray-900 dark:text-white">{{ group.name }}</p>
-                <p class="text-xs text-gray-500">{{ group.memberCount }} members</p>
+
+              <!-- No phone warning -->
+              <div
+                v-else-if="
+                  selectedRsvpForGroups && !selectedRsvpForGroups.phone
+                "
+                class="text-center py-6"
+              >
+                <div
+                  class="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-3"
+                >
+                  <UIcon
+                    name="i-heroicons-exclamation-triangle"
+                    class="w-6 h-6 text-amber-500"
+                  />
+                </div>
+                <p class="text-gray-600 dark:text-gray-400">
+                  This person doesn't have a phone number on record.
+                </p>
+                <p class="text-sm text-gray-500 mt-1">
+                  They need to sign up to be added to groups.
+                </p>
               </div>
-            </button>
-          </div>
-        </template>
-        <template #footer>
-          <div class="flex justify-end gap-3">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              label="Cancel"
-              @click="closeManageGroupsModal"
-            />
-            <UButton
-              v-if="selectedRsvpForGroups?.phone && groupsStore.groups.length > 0"
-              color="primary"
-              label="Save"
-              :loading="savingGroups"
-              @click="saveGroupMembership"
-            />
-          </div>
-        </template>
-      </UModal>
-    </div>
-  </div>
+
+              <!-- No groups yet -->
+              <div
+                v-else-if="groupsStore.groups.length === 0"
+                class="text-center py-6"
+              >
+                <div
+                  class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3"
+                >
+                  <UIcon
+                    name="i-heroicons-user-group"
+                    class="w-6 h-6 text-gray-400"
+                  />
+                </div>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                  You don't have any groups yet.
+                </p>
+                <UButton
+                  color="primary"
+                  variant="soft"
+                  to="/groups"
+                  icon="i-heroicons-plus"
+                  label="Create a Group"
+                  @click="showManageGroupsModal = false"
+                />
+              </div>
+
+              <!-- Group selection -->
+              <div v-else class="space-y-2">
+                <p class="text-sm text-gray-500 mb-3">
+                  Select which groups to add this person to:
+                </p>
+                <button
+                  v-for="group in groupsStore.groups"
+                  :key="group.id"
+                  class="w-full flex items-center gap-3 p-3 rounded-xl transition-all"
+                  :class="[
+                    selectedGroupIds.includes(group.id)
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 ring-2 ring-emerald-500'
+                      : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800',
+                  ]"
+                  @click="toggleGroup(group.id)"
+                >
+                  <div
+                    class="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors"
+                    :class="[
+                      selectedGroupIds.includes(group.id)
+                        ? 'bg-emerald-500 border-emerald-500'
+                        : 'border-gray-300 dark:border-gray-600',
+                    ]"
+                  >
+                    <UIcon
+                      v-if="selectedGroupIds.includes(group.id)"
+                      name="i-heroicons-check"
+                      class="w-3 h-3 text-white"
+                    />
+                  </div>
+                  <div class="flex-1 text-left">
+                    <p class="font-medium text-gray-900 dark:text-white">
+                      {{ group.name }}
+                    </p>
+                    <p class="text-xs text-gray-500">
+                      {{ group.memberCount }} members
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </template>
+            <template #footer>
+              <div class="flex justify-end gap-3">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  label="Cancel"
+                  @click="closeManageGroupsModal"
+                />
+                <UButton
+                  v-if="
+                    selectedRsvpForGroups?.phone &&
+                    groupsStore.groups.length > 0
+                  "
+                  color="primary"
+                  label="Save"
+                  :loading="savingGroups"
+                  @click="saveGroupMembership"
+                />
+              </div>
+            </template>
+          </UModal>
+        </div>
+      </div>
     </template>
   </UModal>
 </template>

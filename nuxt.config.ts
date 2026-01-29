@@ -6,6 +6,10 @@ export default defineNuxtConfig({
 
   modules: ['@nuxt/ui', '@pinia/nuxt'],
 
+  routeRules: {
+    '/e/**': { ssr: true },
+  },
+
   nitro: {
     experimental: {
       websocket: true,
