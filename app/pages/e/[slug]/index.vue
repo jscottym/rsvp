@@ -71,13 +71,29 @@ const {
   error,
 } = await useAsyncData(
   `event-${slug.value}`,
-  () => eventsStore.fetchEvent(slug.value),
+  async () => {
+    try {
+      const token = import.meta.server ? null : await authStore.getIdToken();
+      const response = await $fetch<{ event: any }>(
+        `/api/events/${slug.value}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
+      );
+      eventsStore.currentEvent = response.event;
+      return response.event;
+    } catch (e) {
+      console.error('Failed to fetch event:', e);
+      return null;
+    }
+  },
   {
     watch: [slug],
+    server: true,
   }
 );
 
-const event = computed(() => eventsStore.currentEvent);
+const event = computed(() => eventsStore.currentEvent || eventData.value);
 
 // Fetch activities on mount
 async function fetchActivities() {
@@ -703,40 +719,38 @@ function getEventUrl(withTimestamp = false): string {
   return withTimestamp ? `${baseUrl}?t=${Date.now()}` : baseUrl;
 }
 
+const eventForMeta = computed(() => event.value || eventData.value);
+
+const metaTitle = computed(() => {
+  const evt = eventForMeta.value;
+  if (!evt) return 'Event - RSVP';
+  const date = formatRelativeDay(evt.datetime);
+  const time = formatTime(evt.datetime, evt.endDatetime);
+  return `${evt.location} ${date}, ${time}`;
+});
+
+const metaDescription = computed(() => {
+  const evt = eventForMeta.value;
+  return evt ? `Join ${evt.title} at ${evt.location}` : 'View event details';
+});
+
+const metaOgDescription = computed(() => {
+  const evt = eventForMeta.value;
+  return evt
+    ? `Join ${evt.title} at ${evt.location}. ${evt.rsvpCount ?? 0}/${evt.maxPlayers} players.`
+    : 'View event details';
+});
+
 useSeoMeta({
-  title: () => {
-    if (!event.value) return 'Event - RSVP';
-    const date = formatRelativeDay(event.value.datetime);
-    const time = formatTime(event.value.datetime, event.value.endDatetime);
-    return `${event.value.location} ${date}, ${time}`;
-  },
-  description: () =>
-    event.value
-      ? `Join ${event.value.title} at ${event.value.location}`
-      : 'View event details',
-  ogTitle: () => {
-    if (!event.value) return 'Event - RSVP';
-    const date = formatRelativeDay(event.value.datetime);
-    const time = formatTime(event.value.datetime, event.value.endDatetime);
-    return `${event.value.location} ${date}, ${time}`;
-  },
-  ogDescription: () =>
-    event.value
-      ? `Join ${event.value.title} at ${event.value.location}. ${event.value.rsvpCount ?? 0}/${event.value.maxPlayers} players.`
-      : 'View event details',
+  title: metaTitle,
+  description: metaDescription,
+  ogTitle: metaTitle,
+  ogDescription: metaOgDescription,
   ogType: 'website',
-  ogUrl: () => getEventUrl(false),
+  ogUrl: computed(() => getEventUrl(false)),
   twitterCard: 'summary',
-  twitterTitle: () => {
-    if (!event.value) return 'Event - RSVP';
-    const date = formatRelativeDay(event.value.datetime);
-    const time = formatTime(event.value.datetime, event.value.endDatetime);
-    return `${event.value.location} ${date}, ${time}`;
-  },
-  twitterDescription: () =>
-    event.value
-      ? `Join ${event.value.title} at ${event.value.location}`
-      : 'View event details',
+  twitterTitle: metaTitle,
+  twitterDescription: metaDescription,
 });
 
 // Organizer features
