@@ -1155,7 +1155,7 @@ function closeManageGroupsModal() {
     @update:open="(val) => !val && closeModal()"
   >
     <template #content>
-      <div class="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <div class="h-screen overflow-y-auto bg-gray-50 dark:bg-gray-950">
         <!-- Modal-style Header -->
         <div
           class="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
@@ -1187,7 +1187,7 @@ function closeManageGroupsModal() {
       </div>
     </div>
 
-    <div class="mx-auto max-w-lg px-4 py-4">
+    <div class="mx-auto max-w-lg px-4 py-4 pb-8">
       <!-- Loading Skeleton -->
       <div v-if="pending" class="space-y-4">
         <USkeleton class="h-32 w-full rounded-2xl" />
