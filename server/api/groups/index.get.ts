@@ -22,6 +22,13 @@ export default defineEventHandler(async (event) => {
         select: {
           members: true
         }
+      },
+      members: {
+        select: {
+          id: true,
+          name: true,
+          phone: true
+        }
       }
     }
   })
@@ -33,6 +40,7 @@ export default defineEventHandler(async (event) => {
       description: g.description,
       visibility: g.visibility,
       memberCount: g._count.members,
+      members: g.members,
       createdAt: g.createdAt
     }))
   }

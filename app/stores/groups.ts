@@ -235,6 +235,134 @@ export const useGroupsStore = defineStore('groups', {
     clearCurrentGroup() {
       this.currentGroup = null
       this.pendingRequests = []
+    },
+
+    async addMember(groupId: string, name: string, phone: string) {
+      const authStore = useAuthStore()
+
+      try {
+        const token = await authStore.getIdToken()
+        if (!token) throw new Error('Not authenticated')
+
+        const response = await $fetch<{ member: GroupMember }>(`/api/groups/${groupId}/members`, {
+          method: 'POST',
+          body: { name, phone },
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        // Update local state
+        const group = this.groups.find(g => g.id === groupId)
+        if (group) {
+          if (!group.members) group.members = []
+          group.members.push(response.member)
+          group.memberCount++
+        }
+
+        return response.member
+      } catch (error) {
+        console.error('Failed to add member:', error)
+        throw error
+      }
+    },
+
+    async updateMember(groupId: string, memberId: string, name: string, phone: string) {
+      const authStore = useAuthStore()
+
+      try {
+        const token = await authStore.getIdToken()
+        if (!token) throw new Error('Not authenticated')
+
+        const response = await $fetch<{ member: GroupMember }>(`/api/groups/${groupId}/members/${memberId}`, {
+          method: 'PATCH',
+          body: { name, phone },
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        // Update local state
+        const group = this.groups.find(g => g.id === groupId)
+        if (group?.members) {
+          const idx = group.members.findIndex(m => m.id === memberId)
+          if (idx !== -1) {
+            group.members[idx] = response.member
+          }
+        }
+
+        return response.member
+      } catch (error) {
+        console.error('Failed to update member:', error)
+        throw error
+      }
+    },
+
+    async removeMember(groupId: string, memberId: string) {
+      const authStore = useAuthStore()
+
+      try {
+        const token = await authStore.getIdToken()
+        if (!token) throw new Error('Not authenticated')
+
+        await $fetch(`/api/groups/${groupId}/members/${memberId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        // Update local state
+        const group = this.groups.find(g => g.id === groupId)
+        if (group?.members) {
+          group.members = group.members.filter(m => m.id !== memberId)
+          group.memberCount--
+        }
+      } catch (error) {
+        console.error('Failed to remove member:', error)
+        throw error
+      }
+    },
+
+    async deleteGroup(groupId: string) {
+      const authStore = useAuthStore()
+
+      try {
+        const token = await authStore.getIdToken()
+        if (!token) throw new Error('Not authenticated')
+
+        await $fetch(`/api/groups/${groupId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        // Update local state
+        this.groups = this.groups.filter(g => g.id !== groupId)
+      } catch (error) {
+        console.error('Failed to delete group:', error)
+        throw error
+      }
+    },
+
+    async syncMemberGroups(name: string, phone: string, groupIds: string[]) {
+      const authStore = useAuthStore()
+
+      try {
+        const token = await authStore.getIdToken()
+        if (!token) throw new Error('Not authenticated')
+
+        await $fetch('/api/groups/member-sync', {
+          method: 'POST',
+          body: { name, phone, groupIds },
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        // Refresh groups to get updated member lists
+        await this.fetchMyGroups()
+      } catch (error) {
+        console.error('Failed to sync member groups:', error)
+        throw error
+      }
+    },
+
+    getGroupsForPhone(phone: string): string[] {
+      return this.groups
+        .filter(g => g.members?.some(m => m.phone === phone))
+        .map(g => g.id)
     }
   }
 })
