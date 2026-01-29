@@ -1,64 +1,69 @@
 <script setup lang="ts">
-import { useLocalStorage } from '@vueuse/core'
+import { useLocalStorage } from '@vueuse/core';
 
-const authStore = useAuthStore()
-const eventsStore = useEventsStore()
-const router = useRouter()
-const toast = useToast()
+const authStore = useAuthStore();
+const eventsStore = useEventsStore();
+const router = useRouter();
+const toast = useToast();
 
-const showAuthModal = ref(false)
-const submitting = ref(false)
-const eventFormRef = ref<InstanceType<typeof EventForm> | null>(null)
+const showAuthModal = ref(false);
+const submitting = ref(false);
+const eventFormRef = ref<InstanceType<typeof EventForm> | null>(null);
+const pendingFormData = ref<EventFormData | null>(null);
 
 // Persist location in localStorage
-const savedLocation = useLocalStorage('pickup-sports-last-location', '')
+const savedLocation = useLocalStorage('pickup-sports-last-location', '');
 
 // Initial form data with saved location
 const initialFormData = computed(() => ({
-  location: savedLocation.value
-}))
+  location: savedLocation.value,
+}));
 
 interface EventFormData {
-  date: string
-  startTime: string
-  duration: number
-  maxPlayers: number
-  location: string
-  description: string
-  allowSharing: boolean
+  date: string;
+  startTime: string;
+  duration: number;
+  maxPlayers: number;
+  location: string;
+  description: string;
+  allowSharing: boolean;
 }
 
 async function handleFormSubmit(formData: EventFormData) {
   // Save location for next time
-  savedLocation.value = formData.location
+  savedLocation.value = formData.location;
 
   if (!authStore.isAuthenticated) {
-    showAuthModal.value = true
-    return
+    pendingFormData.value = formData;
+    showAuthModal.value = true;
+    return;
   }
 
-  await createEvent(formData)
+  await createEvent(formData);
 }
 
 async function submitAfterAuth() {
-  if (eventFormRef.value?.form) {
-    await createEvent(eventFormRef.value.form as EventFormData)
+  if (pendingFormData.value) {
+    await createEvent(pendingFormData.value);
+    pendingFormData.value = null;
   }
 }
 
 async function createEvent(formData: EventFormData) {
-  submitting.value = true
+  submitting.value = true;
 
   try {
     // Calculate end time from duration
-    const [h, m] = formData.startTime.split(':').map(Number)
-    const totalMinutes = h * 60 + m + formData.duration
-    const endH = Math.floor(totalMinutes / 60) % 24
-    const endM = totalMinutes % 60
-    const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
+    const [h, m] = formData.startTime.split(':').map(Number);
+    const totalMinutes = h * 60 + m + formData.duration;
+    const endH = Math.floor(totalMinutes / 60) % 24;
+    const endM = totalMinutes % 60;
+    const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
 
-    const datetime = new Date(`${formData.date}T${formData.startTime}`).toISOString()
-    const endDatetime = new Date(`${formData.date}T${endTime}`).toISOString()
+    const datetime = new Date(
+      `${formData.date}T${formData.startTime}`
+    ).toISOString();
+    const endDatetime = new Date(`${formData.date}T${endTime}`).toISOString();
 
     const event = await eventsStore.createEvent({
       title: '🏸 Pickleball Game',
@@ -69,34 +74,34 @@ async function createEvent(formData: EventFormData) {
       endDatetime,
       minPlayers: formData.maxPlayers,
       maxPlayers: formData.maxPlayers,
-      allowSharing: formData.allowSharing
-    })
+      allowSharing: formData.allowSharing,
+    });
 
     toast.add({
       title: 'Game On!',
       description: 'Share the link to get players',
-      color: 'success'
-    })
+      color: 'success',
+    });
 
-    router.push(`/e/${event.slug}/manage`)
+    router.push(`/e/${event.slug}`);
   } catch (error: any) {
     toast.add({
       title: 'Oops!',
       description: error.data?.message || 'Something went wrong',
-      color: 'error'
-    })
+      color: 'error',
+    });
   } finally {
-    submitting.value = false
+    submitting.value = false;
   }
 }
 
 useSeoMeta({
-  title: 'Create Game - RSVP'
-})
+  title: 'Create Game - RSVP',
+});
 </script>
 
 <template>
-  <div class="max-w-lg mx-auto py-6">
+  <div class="max-w-lg mx-auto px-4 py-6">
     <EventForm
       ref="eventFormRef"
       :initial-data="initialFormData"
@@ -105,9 +110,6 @@ useSeoMeta({
     />
 
     <!-- Auth Modal -->
-    <AuthModal
-      v-model:open="showAuthModal"
-      @authenticated="submitAfterAuth"
-    />
+    <AuthModal v-model:open="showAuthModal" @authenticated="submitAfterAuth" />
   </div>
 </template>

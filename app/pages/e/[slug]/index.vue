@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui';
 import type { EventActivity } from '~/composables/useEventWebSocket';
+import { formatRelativeDay } from '~/utils/dateFormat';
 
 type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST';
 
@@ -20,6 +21,7 @@ const showDropOutModal = ref(false);
 const droppingOut = ref(false);
 const activeResponseTab = ref('in');
 const isEditingNote = ref(false);
+const isEditingInIf = ref(false);
 const noteInputRef = ref<HTMLInputElement | null>(null);
 const showUndoButton = ref(false);
 const undoTimeoutId = ref<ReturnType<typeof setTimeout> | null>(null);
@@ -29,6 +31,8 @@ const showEditModal = ref(false);
 const showDeleteModal = ref(false);
 const showSaveGroupModal = ref(false);
 const showEditWarningModal = ref(false);
+const showShareModal = ref(false);
+const showMessageModal = ref(false);
 const saving = ref(false);
 const deleting = ref(false);
 const savingGroup = ref(false);
@@ -287,7 +291,7 @@ const canSilentDropOut = computed(
 );
 const spotOpenedUp = computed(() => isOnWaitlist.value && !isFull.value);
 
-const IN_IF_PREFIX = 'I can come if ';
+const IN_IF_PREFIX = "I'm in if ";
 
 const canSubmit = computed(() => {
   if (!selectedStatus.value) return false;
@@ -323,6 +327,7 @@ async function selectStatus(status: RsvpStatus) {
 
   if (status === 'IN_IF' && previousStatus !== 'IN_IF') {
     comment.value = IN_IF_PREFIX;
+    isEditingInIf.value = true;
     await nextTick();
     noteInputRef.value?.focus();
     noteInputRef.value?.setSelectionRange(
@@ -330,6 +335,7 @@ async function selectStatus(status: RsvpStatus) {
       comment.value.length
     );
   } else if (status !== 'IN_IF') {
+    isEditingInIf.value = false;
     await autoSave();
     if (status === 'IN') {
       startUndoTimer();
@@ -361,7 +367,7 @@ async function handleUndo() {
 
 async function autoSave() {
   if (!selectedStatus.value) return;
-  if (selectedStatus.value === 'IN_IF' && !comment.value.trim()) return;
+  if (selectedStatus.value === 'IN_IF' && hasUnsavedInIfComment()) return;
 
   if (!authStore.isAuthenticated) {
     pendingRsvpStatus.value = selectedStatus.value;
@@ -556,6 +562,9 @@ function startEditingNote() {
 
 function saveNote() {
   isEditingNote.value = false;
+  if (selectedStatus.value === 'IN_IF') {
+    isEditingInIf.value = false;
+  }
   if (comment.value !== (event.value?.userRsvp?.comment || '')) {
     autoSave();
   }
@@ -565,10 +574,17 @@ function handleNoteKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault();
     saveNote();
+    noteInputRef.value?.blur();
   }
   if (e.key === 'Escape') {
     isEditingNote.value = false;
-    comment.value = event.value?.userRsvp?.comment || '';
+    if (selectedStatus.value === 'IN_IF') {
+      isEditingInIf.value = false;
+      comment.value = event.value?.userRsvp?.comment || IN_IF_PREFIX;
+    } else {
+      comment.value = event.value?.userRsvp?.comment || '';
+    }
+    noteInputRef.value?.blur();
   }
 }
 
@@ -604,39 +620,6 @@ function formatTime(datetime: string, endDatetime?: string) {
     return `${startTimeStr}${startPeriod}-${endTimeStr}${endPeriod}`;
   }
   return `${startTimeStr}${startPeriod}`;
-}
-
-function formatRelativeDay(datetime: string) {
-  const eventDate = new Date(datetime);
-  eventDate.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const diffDays = Math.round(
-    (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const dayName = eventDate.toLocaleDateString('en-US', { weekday: 'short' });
-
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Tomorrow';
-
-  const thisSunday = new Date(today);
-  thisSunday.setDate(today.getDate() - today.getDay());
-  const nextSunday = new Date(thisSunday);
-  nextSunday.setDate(thisSunday.getDate() + 7);
-  const sundayAfterNext = new Date(nextSunday);
-  sundayAfterNext.setDate(nextSunday.getDate() + 7);
-
-  if (eventDate >= thisSunday && eventDate < nextSunday) {
-    return `This ${dayName}`;
-  }
-  if (eventDate >= nextSunday && eventDate < sundayAfterNext) {
-    return `Next ${dayName}`;
-  }
-  return eventDate.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 function formatTimeAgo(datetime: string) {
@@ -795,57 +778,19 @@ function formatShareTime(datetime: string): string {
   return `${hour12}:${minutes.toString().padStart(2, '0')}${suffix}`;
 }
 
-// Generate share message like "This Wed 6-8am? Looking for 3."
 function generateShareMessage(): string {
   if (!event.value) return '';
 
-  const eventDate = new Date(event.value.datetime);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const eventDay = new Date(
-    eventDate.getFullYear(),
-    eventDate.getMonth(),
-    eventDate.getDate()
-  );
-  const diffDays = Math.floor(
-    (eventDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const dayStr = formatRelativeDay(event.value.datetime, {
+    includeTonight: true,
+  });
 
-  const thisSunday = new Date(today);
-  thisSunday.setDate(today.getDate() - today.getDay());
-  const nextSunday = new Date(thisSunday);
-  nextSunday.setDate(thisSunday.getDate() + 7);
-  const sundayAfterNext = new Date(nextSunday);
-  sundayAfterNext.setDate(nextSunday.getDate() + 7);
-
-  // Format the day part
-  let dayStr: string;
-  const isEvening = eventDate.getHours() >= 17;
-  const weekday = eventDate.toLocaleDateString('en-US', { weekday: 'short' });
-
-  if (diffDays === 0) {
-    dayStr = isEvening ? 'Tonight' : 'Today';
-  } else if (diffDays === 1) {
-    dayStr = 'Tomorrow';
-  } else if (eventDay >= thisSunday && eventDay < nextSunday) {
-    dayStr = `This ${weekday}`;
-  } else if (eventDay >= nextSunday && eventDay < sundayAfterNext) {
-    dayStr = `Next ${weekday}`;
-  } else {
-    dayStr = eventDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-  }
-
-  // Format time range
   const startTime = formatShareTime(event.value.datetime);
   const endTime = event.value.endDatetime
     ? formatShareTime(event.value.endDatetime)
     : '';
   const timeStr = endTime ? `${startTime}-${endTime}` : startTime;
 
-  // Calculate spots needed
   const spotsNeeded = event.value.maxPlayers - (event.value.rsvpCount || 0);
 
   return `${dayStr} ${timeStr}? Looking for ${spotsNeeded}.`;
@@ -1182,6 +1127,30 @@ async function deleteEvent() {
 
     <!-- Event Content -->
     <template v-else-if="event">
+      <!-- Control Bar -->
+      <div class="mb-4 flex gap-2">
+        <UButton
+          v-if="event.allowSharing"
+          color="primary"
+          variant="soft"
+          icon="i-heroicons-share"
+          label="Share"
+          class="flex-1"
+          size="lg"
+          @click="showShareModal = true"
+        />
+        <UButton
+          v-if="event.isOrganizer"
+          color="neutral"
+          variant="soft"
+          icon="i-heroicons-pencil-square"
+          label="Edit"
+          class="flex-1"
+          size="lg"
+          @click="handleEditClick"
+        />
+      </div>
+
       <!-- Sharing Note Banner -->
       <UAlert
         v-if="event.sharingNote"
@@ -1210,31 +1179,13 @@ async function deleteEvent() {
               event.location
             }}</span>
           </div>
-          <div class="flex flex-shrink-0 items-center gap-2">
+          <div class="flex flex-shrink-0 items-center">
             <span class="text-sm text-gray-600 dark:text-gray-400"
               ><span class="text-primary-500 font-medium">{{
                 formatRelativeDay(event.datetime)
               }}</span>
               · {{ formatTime(event.datetime, event.endDatetime) }}</span
             >
-            <!-- Share Dropdown -->
-            <UDropdownMenu v-if="event.allowSharing" :items="shareMenuItems">
-              <UButton
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                icon="i-heroicons-share"
-              />
-            </UDropdownMenu>
-            <!-- Manage Dropdown (Organizer only) -->
-            <UDropdownMenu v-if="event.isOrganizer" :items="manageMenuItems">
-              <UButton
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                icon="i-heroicons-ellipsis-vertical"
-              />
-            </UDropdownMenu>
           </div>
         </div>
 
@@ -1553,7 +1504,9 @@ async function deleteEvent() {
           <div v-if="selectedStatus || isConfirmed" class="mt-1">
             <!-- Editing state -->
             <div
-              v-if="isEditingNote || selectedStatus === 'IN_IF'"
+              v-if="
+                isEditingNote || (selectedStatus === 'IN_IF' && isEditingInIf)
+              "
               class="relative"
             >
               <input
@@ -1567,7 +1520,7 @@ async function deleteEvent() {
                 "
                 class="focus:border-primary-500 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 pr-20 text-gray-900 placeholder-gray-400 transition-colors focus:ring-0 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                 @keydown="handleNoteKeydown"
-                @blur="selectedStatus !== 'IN_IF' && saveNote()"
+                @blur="saveNote()"
               />
               <div
                 v-if="comment.trim()"
@@ -1607,10 +1560,26 @@ async function deleteEvent() {
 
             <!-- Display state (not editing, has note) -->
             <button
-              v-else-if="comment && !isEditingNote"
+              v-else-if="
+                comment &&
+                !isEditingNote &&
+                !(
+                  selectedStatus === 'IN_IF' &&
+                  (isEditingInIf || hasUnsavedInIfComment())
+                )
+              "
               type="button"
               class="group flex w-full items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
-              @click="startEditingNote"
+              @click="
+                if (selectedStatus === 'IN_IF') {
+                  isEditingInIf = true;
+                  nextTick(() => {
+                    noteInputRef?.focus();
+                  });
+                } else {
+                  startEditingNote();
+                }
+              "
             >
               <UIcon
                 name="i-heroicons-chat-bubble-bottom-center-text"
@@ -1631,25 +1600,21 @@ async function deleteEvent() {
               v-else
               type="button"
               class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-              @click="startEditingNote"
+              @click="
+                if (selectedStatus === 'IN_IF') {
+                  isEditingInIf = true;
+                  nextTick(() => {
+                    noteInputRef?.focus();
+                  });
+                } else {
+                  startEditingNote();
+                }
+              "
             >
               <UIcon name="i-heroicons-plus" class="h-4 w-4" />
               Add note
             </button>
           </div>
-
-          <!-- Submit for IN_IF -->
-          <UButton
-            v-if="selectedStatus === 'IN_IF' && canSubmit"
-            color="primary"
-            size="xl"
-            block
-            :loading="rsvpLoading"
-            icon="i-heroicons-check"
-            @click="handleSubmit"
-          >
-            Save
-          </UButton>
         </template>
       </div>
 
@@ -1768,6 +1733,19 @@ async function deleteEvent() {
             </div>
           </TransitionGroup>
         </div>
+
+        <!-- Message Players Button (Organizer only) -->
+        <div v-if="event.isOrganizer" class="mt-4">
+          <UButton
+            color="neutral"
+            variant="soft"
+            icon="i-heroicons-chat-bubble-left-ellipsis"
+            label="Message players"
+            block
+            size="lg"
+            @click="showMessageModal = true"
+          />
+        </div>
       </div>
 
       <!-- Activity Log Section -->
@@ -1827,47 +1805,72 @@ async function deleteEvent() {
     />
 
     <!-- Drop Out Modal -->
-    <UModal v-model:open="showDropOutModal" title="Drop Out">
+    <UModal v-model:open="showDropOutModal" :ui="{ width: 'sm:max-w-md' }">
       <template #body>
-        <p class="text-gray-600 dark:text-gray-400">
-          Are you sure you want to drop out of this event?
-        </p>
-        <p
-          v-if="hasWaitlist && event"
-          class="mt-2 text-sm text-violet-600 dark:text-violet-400"
-        >
-          There {{ (event.waitlistCount ?? 0) === 1 ? 'is' : 'are' }}
-          {{ event.waitlistCount ?? 0 }}
-          {{ (event.waitlistCount ?? 0) === 1 ? 'person' : 'people' }} on the
-          waitlist who could take your spot.
-        </p>
-        <p v-else class="mt-2 text-sm text-gray-500">
-          You can send a text to let the other players know.
-        </p>
-      </template>
-      <template #footer>
-        <div class="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            label="Cancel"
-            @click="showDropOutModal = false"
-          />
-          <UButton
-            color="error"
-            variant="soft"
-            label="Just Drop Out"
-            :loading="droppingOut"
-            @click="handleDropOut(false)"
-          />
-          <UButton
-            color="primary"
-            :label="
-              hasWaitlist ? 'Drop Out & Text Everyone' : 'Drop Out & Send Text'
-            "
-            :loading="droppingOut"
-            @click="handleDropOut(true)"
-          />
+        <div class="text-center py-2">
+          <!-- Icon -->
+          <div
+            class="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4"
+          >
+            <UIcon
+              name="i-heroicons-arrow-right-start-on-rectangle"
+              class="w-8 h-8 text-red-500"
+            />
+          </div>
+
+          <!-- Title -->
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            Drop out?
+          </h3>
+
+          <!-- Description -->
+          <p class="text-gray-500 dark:text-gray-400 mb-4">
+            Let the group know so someone else can take your spot.
+          </p>
+
+          <!-- Waitlist badge -->
+          <div
+            v-if="hasWaitlist && event"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-100 dark:bg-violet-900/30 mb-6"
+          >
+            <UIcon
+              name="i-heroicons-clock"
+              class="w-4 h-4 text-violet-500"
+            />
+            <span class="text-sm font-medium text-violet-700 dark:text-violet-300">
+              {{ event.waitlistCount ?? 0 }} on waitlist
+            </span>
+          </div>
+
+          <!-- Actions -->
+          <div class="space-y-3">
+            <UButton
+              color="primary"
+              size="lg"
+              block
+              icon="i-heroicons-chat-bubble-left-ellipsis"
+              :label="hasWaitlist ? 'Drop Out & Text Everyone' : 'Drop Out & Text Group'"
+              :loading="droppingOut"
+              class="h-14 rounded-xl"
+              @click="handleDropOut(true)"
+            />
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="lg"
+              block
+              label="Just Drop Out"
+              :loading="droppingOut"
+              class="h-12 rounded-xl"
+              @click="handleDropOut(false)"
+            />
+            <button
+              class="w-full py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              @click="showDropOutModal = false"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </template>
     </UModal>
@@ -1927,27 +1930,19 @@ async function deleteEvent() {
             @submit="saveEvent"
             @cancel="showEditModal = false"
           />
-        </div>
-      </template>
-      <template #footer>
-        <div
-          class="flex justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-800"
-        >
-          <UButton
-            color="error"
-            variant="ghost"
-            label="Delete Event"
-            @click="
-              showDeleteModal = true;
-              showEditModal = false;
-            "
-          />
-          <UButton
-            color="neutral"
-            variant="ghost"
-            label="Cancel"
-            @click="showEditModal = false"
-          />
+
+          <!-- Delete option - subtle, at bottom -->
+          <div class="mt-12 mb-8 pt-6 border-t border-gray-100 dark:border-gray-800">
+            <button
+              class="w-full text-center text-sm text-gray-400 hover:text-red-500 transition-colors"
+              @click="
+                showDeleteModal = true;
+                showEditModal = false;
+              "
+            >
+              Delete this event
+            </button>
+          </div>
         </div>
       </template>
     </USlideover>
@@ -2013,6 +2008,34 @@ async function deleteEvent() {
         </div>
       </template>
     </UModal>
+
+    <!-- Share Modal -->
+    <EventShareModal
+      v-if="event"
+      v-model:open="showShareModal"
+      :event="{
+        slug: event.slug,
+        datetime: event.datetime,
+        endDatetime: event.endDatetime,
+        maxPlayers: event.maxPlayers,
+        rsvpCount: event.rsvpCount
+      }"
+    />
+
+    <!-- Message Players Modal -->
+    <EventMessageModal
+      v-if="event"
+      v-model:open="showMessageModal"
+      :event="{
+        slug: event.slug,
+        title: event.title,
+        datetime: event.datetime,
+        endDatetime: event.endDatetime,
+        location: event.location,
+        isOrganizer: event.isOrganizer
+      }"
+      :rsvps="event.rsvps?.map(r => ({ id: r.id, status: r.status, name: r.name, phone: null })) || []"
+    />
   </div>
 </template>
 

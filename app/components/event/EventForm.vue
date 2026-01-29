@@ -28,6 +28,20 @@ const playerCounts = [
   { value: 12, label: 'party' },
 ];
 
+// Format date as YYYY-MM-DD in local timezone
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Parse YYYY-MM-DD string as local date (not UTC)
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 // Generate next 15 days
 const nextDays = computed(() => {
   const days = [];
@@ -38,7 +52,7 @@ const nextDays = computed(() => {
     date.setDate(today.getDate() + i);
 
     days.push({
-      value: date.toISOString().split('T')[0],
+      value: formatLocalDate(date),
       dayName:
         i === 0
           ? 'Today'
@@ -172,18 +186,15 @@ function abbreviateLocation(loc: string): string {
 
 // Format date for display (abbreviated)
 function formatDateDisplay(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const dateToCheck = new Date(date);
-  dateToCheck.setHours(0, 0, 0, 0);
-
-  if (dateToCheck.getTime() === today.getTime()) {
+  if (date.getTime() === today.getTime()) {
     return 'Today';
-  } else if (dateToCheck.getTime() === tomorrow.getTime()) {
+  } else if (date.getTime() === tomorrow.getTime()) {
     return 'Tmrw';
   } else {
     return date.toLocaleDateString('en-US', {

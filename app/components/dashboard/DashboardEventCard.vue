@@ -1,22 +1,50 @@
 <script setup lang="ts">
-type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST'
+import { formatRelativeDay } from '~/utils/dateFormat';
+import {
+  getRsvpStatusConfig,
+  RSVP_STATUS_CONFIG,
+  type RsvpStatus,
+} from '~/utils/rsvpStatus';
+
+interface Attendee {
+  id: string;
+  status: RsvpStatus;
+  name: string;
+  userId: string | null;
+}
 
 interface Props {
   event: {
-    slug: string
-    title: string
-    sportType: string
-    location: string
-    datetime: string
-    endDatetime: string | null
-    maxPlayers: number
-    rsvpCount: number
-    isOrganizer: boolean
-    userRsvpStatus: RsvpStatus | null
-  }
+    slug: string;
+    title: string;
+    sportType: string;
+    location: string;
+    datetime: string;
+    endDatetime: string | null;
+    maxPlayers: number;
+    rsvpCount: number;
+    isOrganizer: boolean;
+    userRsvpStatus: RsvpStatus | null;
+    organizer: { id: string; name: string | null };
+    attendees?: Attendee[];
+  };
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  claimSpot: [slug: string];
+}>();
+
+const claiming = ref(false);
+
+async function handleClaimSpot(e: Event) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  claiming.value = true;
+  emit('claimSpot', props.event.slug);
+}
 
 const sportEmoji = computed(() => {
   const emojis: Record<string, string> = {
@@ -33,126 +61,218 @@ const sportEmoji = computed(() => {
     running: '\u{1F3C3}',
     cycling: '\u{1F6B4}',
     swimming: '\u{1F3CA}',
-    hiking: '\u{1F6B6}'
-  }
-  return emojis[props.event.sportType.toLowerCase()] || '\u{1F3C6}'
-})
+    hiking: '\u{1F6B6}',
+  };
+  return emojis[props.event.sportType.toLowerCase()] || '\u{1F3C6}';
+});
 
-const accentColor = computed(() => {
-  if (props.event.isOrganizer) return 'bg-gradient-to-b from-amber-400 to-amber-500'
-  switch (props.event.userRsvpStatus) {
-    case 'IN': return 'bg-emerald-500'
-    case 'MAYBE':
-    case 'IN_IF': return 'bg-amber-400'
-    case 'WAITLIST': return 'bg-violet-500'
-    default: return 'bg-gray-300 dark:bg-gray-600'
-  }
-})
-
-const badge = computed(() => {
-  if (props.event.isOrganizer) {
-    return { label: 'Organizing', color: 'warning' as const, variant: 'soft' as const }
-  }
-  switch (props.event.userRsvpStatus) {
-    case 'IN': return { label: 'In', color: 'primary' as const, variant: 'soft' as const }
-    case 'MAYBE': return { label: 'Maybe', color: 'warning' as const, variant: 'soft' as const }
-    case 'IN_IF': return { label: 'Maybe', color: 'warning' as const, variant: 'soft' as const }
-    case 'WAITLIST': return { label: 'Waitlist', color: 'info' as const, variant: 'soft' as const }
-    default: return null
-  }
-})
-
-function formatRelativeDay(datetime: string) {
-  const eventDate = new Date(datetime)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  eventDate.setHours(0, 0, 0, 0)
-
-  const diffDays = Math.round((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Tomorrow'
-  if (diffDays === -1) return 'Yesterday'
-  if (diffDays < 0) return eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  if (diffDays < 7) return eventDate.toLocaleDateString('en-US', { weekday: 'long' })
-
-  return eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
+const statusConfig = computed(() =>
+  getRsvpStatusConfig(props.event.userRsvpStatus, props.event.isOrganizer)
+);
 
 function formatTime(datetime: string, endDatetime: string | null) {
-  const start = new Date(datetime)
-  const startHour = start.getHours()
-  const startMin = start.getMinutes()
+  const start = new Date(datetime);
+  const startHour = start.getHours();
+  const startMin = start.getMinutes();
 
   const formatHour = (h: number, m: number) => {
-    const period = h >= 12 ? 'pm' : 'am'
-    const hour12 = h % 12 || 12
-    return m === 0 ? `${hour12}${period}` : `${hour12}:${m.toString().padStart(2, '0')}${period}`
+    const period = h >= 12 ? 'pm' : 'am';
+    const hour12 = h % 12 || 12;
+    return m === 0
+      ? `${hour12}${period}`
+      : `${hour12}:${m.toString().padStart(2, '0')}${period}`;
+  };
+
+  const startStr = formatHour(startHour, startMin);
+
+  if (!endDatetime) return startStr;
+
+  const end = new Date(endDatetime);
+  const endHour = end.getHours();
+  const endMin = end.getMinutes();
+  const endStr = formatHour(endHour, endMin);
+
+  if (startHour < 12 === endHour < 12) {
+    const startHour12 = startHour % 12 || 12;
+    const startShort =
+      startMin === 0
+        ? `${startHour12}`
+        : `${startHour12}:${startMin.toString().padStart(2, '0')}`;
+    return `${startShort}-${endStr}`;
   }
 
-  const startStr = formatHour(startHour, startMin)
-
-  if (!endDatetime) return startStr
-
-  const end = new Date(endDatetime)
-  const endHour = end.getHours()
-  const endMin = end.getMinutes()
-  const endStr = formatHour(endHour, endMin)
-
-  // If same am/pm, omit from start
-  if ((startHour < 12) === (endHour < 12)) {
-    const startHour12 = startHour % 12 || 12
-    const startShort = startMin === 0 ? `${startHour12}` : `${startHour12}:${startMin.toString().padStart(2, '0')}`
-    return `${startShort}-${endStr}`
-  }
-
-  return `${startStr}-${endStr}`
+  return `${startStr}-${endStr}`;
 }
+
+function getInitial(name: string) {
+  return name.charAt(0).toUpperCase();
+}
+
+function getFirstName(name: string) {
+  return name.split(' ')[0];
+}
+
+function getAttendeeStyle(status: RsvpStatus) {
+  const config = RSVP_STATUS_CONFIG[status];
+  const styles: Record<RsvpStatus, { avatarBg: string; avatarText: string }> = {
+    IN: {
+      avatarBg: 'bg-emerald-200 dark:bg-emerald-800',
+      avatarText: 'text-emerald-700 dark:text-emerald-300',
+    },
+    WAITLIST: {
+      avatarBg: 'bg-violet-200 dark:bg-violet-800',
+      avatarText: 'text-violet-700 dark:text-violet-300',
+    },
+    MAYBE: {
+      avatarBg: 'bg-amber-200 dark:bg-amber-800',
+      avatarText: 'text-amber-700 dark:text-amber-300',
+    },
+    IN_IF: {
+      avatarBg: 'bg-amber-200 dark:bg-amber-800',
+      avatarText: 'text-amber-700 dark:text-amber-300',
+    },
+    OUT: {
+      avatarBg: 'bg-red-200 dark:bg-red-800',
+      avatarText: 'text-red-700 dark:text-red-300',
+    },
+  };
+  return {
+    ...styles[status],
+    nameText: config.textColor,
+  };
+}
+
+const displayedAttendees = computed(() => {
+  if (!props.event.attendees) return [];
+  return props.event.attendees.filter((a) => a.status === 'IN').slice(0, 5);
+});
+
+const remainingCount = computed(() => {
+  if (!props.event.attendees) return 0;
+  const inCount = props.event.attendees.filter((a) => a.status === 'IN').length;
+  return Math.max(0, inCount - 5);
+});
+
+// Check if user is on waitlist and a spot opened up
+const spotOpenedUp = computed(() => {
+  return (
+    props.event.userRsvpStatus === 'WAITLIST' &&
+    props.event.rsvpCount < props.event.maxPlayers
+  );
+});
 </script>
 
 <template>
   <NuxtLink
     :to="`/e/${event.slug}`"
-    class="group relative flex bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:border-primary-400 dark:hover:border-primary-600 transition-all duration-200 active:scale-[0.98]"
+    :class="[
+      'group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-200 active:scale-[0.98]',
+      statusConfig.bg,
+      statusConfig.border,
+      statusConfig.ring,
+      'border',
+    ]"
   >
-    <!-- Left accent bar -->
-    <div class="w-1.5 flex-shrink-0" :class="accentColor"></div>
+    <!-- Spot opened up banner -->
+    <div
+      v-if="spotOpenedUp"
+      class="bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 flex items-center justify-between"
+    >
+      <div class="flex items-center gap-2">
+        <UIcon name="i-heroicons-sparkles" class="w-4 h-4 text-white" />
+        <span class="text-sm font-semibold text-white">A spot opened up!</span>
+      </div>
+      <button
+        class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-xs font-semibold text-white transition-colors active:scale-95"
+        :disabled="claiming"
+        @click="handleClaimSpot"
+      >
+        {{ claiming ? 'Claiming...' : 'Claim Spot' }}
+      </button>
+    </div>
 
-    <!-- Content -->
+    <!-- Main content -->
     <div class="flex-1 p-4 min-w-0">
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0 flex-1">
-          <!-- Title with emoji -->
-          <h3 class="font-semibold text-gray-900 dark:text-white truncate">
-            {{ sportEmoji }} {{ event.title }}
-          </h3>
-
-          <!-- Location -->
-          <p class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-            <UIcon name="i-heroicons-map-pin" class="w-3.5 h-3.5 flex-shrink-0" />
-            <span class="truncate">{{ event.location }}</span>
-          </p>
-
-          <!-- Time -->
-          <p class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5 flex-shrink-0" />
-            <span>{{ formatRelativeDay(event.datetime) }} {{ formatTime(event.datetime, event.endDatetime) }}</span>
-          </p>
+      <!-- Top row: Date/Time and Status (icon on right) -->
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="flex items-center gap-3 text-sm">
+          <span class="font-semibold text-gray-900 dark:text-white">
+            {{ formatRelativeDay(event.datetime) }}
+          </span>
+          <span class="text-gray-400">·</span>
+          <span class="text-gray-600 dark:text-gray-400">
+            {{ formatTime(event.datetime, event.endDatetime) }}
+          </span>
         </div>
-
-        <!-- Right side: badge + count -->
-        <div class="flex flex-col items-end gap-1 flex-shrink-0">
-          <UBadge
-            v-if="badge"
-            :label="badge.label"
-            :color="badge.color"
-            :variant="badge.variant"
-            size="xs"
+        <div v-if="statusConfig.iconSolid" class="flex items-center gap-1.5">
+          <span :class="['text-xs font-medium', statusConfig.textColor]">
+            {{ statusConfig.label }}
+          </span>
+          <UIcon
+            :name="statusConfig.iconSolid"
+            :class="['w-4 h-4', statusConfig.iconColor]"
           />
-          <div class="text-right">
-            <span class="text-lg font-bold text-primary-500">{{ event.rsvpCount }}</span>
-            <span class="text-xs text-gray-400">/{{ event.maxPlayers }}</span>
+        </div>
+      </div>
+
+      <!-- Location row -->
+      <div class="flex items-center gap-2 mb-3">
+        <UIcon
+          name="i-heroicons-map-pin"
+          class="w-4 h-4 text-gray-400 shrink-0"
+        />
+        <span class="text-sm text-gray-700 dark:text-gray-300 truncate">{{
+          event.location
+        }}</span>
+      </div>
+
+      <!-- Bottom row: Attendees + Count -->
+      <div class="flex items-center justify-between gap-2">
+        <!-- Attendees -->
+        <div
+          v-if="displayedAttendees.length > 0"
+          class="flex items-start gap-1 flex-wrap min-w-0"
+        >
+          <div
+            v-for="attendee in displayedAttendees"
+            :key="attendee.id"
+            class="flex flex-col justify-centergap-0.5 pr-2"
+          >
+            <div class="flex items-center gap-1">
+              <span
+                :class="[
+                  'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold',
+                  getAttendeeStyle(attendee.status).avatarBg,
+                  getAttendeeStyle(attendee.status).avatarText,
+                ]"
+              >
+                {{ getInitial(attendee.name) }}
+              </span>
+              <span
+                :class="['text-xs', getAttendeeStyle(attendee.status).nameText]"
+              >
+                {{ getFirstName(attendee.name) }}
+              </span>
+            </div>
+            <div
+              v-if="attendee.userId === event.organizer.id"
+              class="text-[10px] font-medium text-primary-600 dark:text-primary-400 text-center"
+            >
+              Organizer
+            </div>
           </div>
+          <span v-if="remainingCount > 0" class="text-xs text-gray-400 ml-1">
+            +{{ remainingCount }}
+          </span>
+        </div>
+        <div v-else class="flex-1" />
+
+        <!-- Player count -->
+        <div class="shrink-0">
+          <span class="text-lg font-bold text-primary-500">{{
+            event.rsvpCount
+          }}</span>
+          <span class="text-xs text-gray-400">/{{ event.maxPlayers }}</span>
         </div>
       </div>
     </div>

@@ -1,11 +1,23 @@
 import { defineWebSocketHandler } from 'h3'
 import { addPeerToEvent, removePeerFromAllEvents } from '../utils/broadcast'
 
-interface ClientMessage {
-  type: 'subscribe' | 'ping'
-  eventSlug?: string
+interface SubscribeMessage {
+  type: 'subscribe'
+  eventSlug: string
   token?: string
 }
+
+interface SubscribeDashboardMessage {
+  type: 'subscribe_dashboard'
+  eventSlugs: string[]
+  token?: string
+}
+
+interface PingMessage {
+  type: 'ping'
+}
+
+type ClientMessage = SubscribeMessage | SubscribeDashboardMessage | PingMessage
 
 export default defineWebSocketHandler({
   open(peer) {
@@ -37,6 +49,26 @@ export default defineWebSocketHandler({
           }))
 
           console.log(`[WebSocket] Peer ${peer.id} subscribed to event:${data.eventSlug}`)
+          break
+        }
+
+        case 'subscribe_dashboard': {
+          if (!data.eventSlugs || !Array.isArray(data.eventSlugs)) {
+            peer.send(JSON.stringify({ type: 'error', message: 'eventSlugs array is required' }))
+            return
+          }
+
+          // Add peer to all event channels
+          for (const slug of data.eventSlugs) {
+            addPeerToEvent(slug, peer)
+          }
+
+          peer.send(JSON.stringify({
+            type: 'dashboard_subscribed',
+            eventSlugs: data.eventSlugs
+          }))
+
+          console.log(`[WebSocket] Peer ${peer.id} subscribed to dashboard with ${data.eventSlugs.length} events`)
           break
         }
 

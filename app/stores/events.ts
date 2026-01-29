@@ -67,6 +67,12 @@ interface DashboardEvent {
     id: string;
     name: string | null;
   };
+  attendees?: {
+    id: string;
+    status: RsvpStatus;
+    name: string;
+    userId: string | null;
+  }[];
 }
 
 interface EventsState {
@@ -455,6 +461,109 @@ export const useEventsStore = defineStore('events', {
           updatedAt: new Date().toISOString(),
         };
       }
+    },
+
+    /**
+     * Apply a real-time RSVP update from WebSocket to dashboard events
+     */
+    applyDashboardRsvpUpdate(payload: {
+      eventSlug: string;
+      rsvp: {
+        id: string;
+        userId: string | null;
+        status: RsvpStatus;
+        comment: string | null;
+        name: string;
+      };
+      counts: {
+        rsvpCount: number;
+        waitlistCount: number;
+      };
+    }) {
+      const authStore = useAuthStore();
+      const userId = authStore.user?.id;
+
+      // Helper to update event RSVP data
+      const updateEvent = (event: DashboardEvent | undefined) => {
+        if (!event) return;
+
+        event.rsvpCount = payload.counts.rsvpCount;
+
+        // Update userRsvpStatus if this is the current user's RSVP
+        if (userId === payload.rsvp.userId) {
+          event.userRsvpStatus = payload.rsvp.status;
+        }
+
+        // Update attendees list if present
+        if (event.attendees) {
+          const existingIndex = event.attendees.findIndex(
+            (a) => a.id === payload.rsvp.id || a.userId === payload.rsvp.userId
+          );
+
+          const updatedAttendee = {
+            id: payload.rsvp.id,
+            status: payload.rsvp.status,
+            name: payload.rsvp.name,
+            userId: payload.rsvp.userId,
+          };
+
+          if (existingIndex !== -1) {
+            event.attendees[existingIndex] = updatedAttendee;
+          } else {
+            event.attendees.push(updatedAttendee);
+          }
+        }
+      };
+
+      // Update in upcoming events
+      const upcomingEvent = this.dashboardUpcoming.find(
+        (e) => e.slug === payload.eventSlug
+      );
+      updateEvent(upcomingEvent);
+
+      // Update in past events
+      const pastEvent = this.dashboardPast.find(
+        (e) => e.slug === payload.eventSlug
+      );
+      updateEvent(pastEvent);
+    },
+
+    /**
+     * Apply a real-time event update from WebSocket to dashboard events
+     */
+    applyDashboardEventUpdate(payload: {
+      eventSlug: string;
+      event: {
+        location: string;
+        datetime: string;
+        endDatetime: string;
+        minPlayers: number;
+        maxPlayers: number;
+        description: string | null;
+        allowSharing: boolean;
+      };
+    }) {
+      // Helper to update event details
+      const updateEvent = (event: DashboardEvent | undefined) => {
+        if (!event) return;
+
+        event.location = payload.event.location;
+        event.datetime = payload.event.datetime;
+        event.endDatetime = payload.event.endDatetime;
+        event.maxPlayers = payload.event.maxPlayers;
+      };
+
+      // Update in upcoming events
+      const upcomingEvent = this.dashboardUpcoming.find(
+        (e) => e.slug === payload.eventSlug
+      );
+      updateEvent(upcomingEvent);
+
+      // Update in past events
+      const pastEvent = this.dashboardPast.find(
+        (e) => e.slug === payload.eventSlug
+      );
+      updateEvent(pastEvent);
     },
   },
 });
