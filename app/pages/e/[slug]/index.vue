@@ -995,13 +995,13 @@ async function deleteEvent() {
   <div class="min-h-screen bg-gray-50 dark:bg-gray-950">
     <!-- Modal-style Header -->
     <div class="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-      <button
+      <NuxtLink
+        to="/"
         class="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-        @click="router.back()"
       >
         <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
         <span class="text-sm font-medium">Back</span>
-      </button>
+      </NuxtLink>
       <div v-if="event" class="flex items-center gap-2">
         <button
           v-if="event.allowSharing"

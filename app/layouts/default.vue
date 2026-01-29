@@ -43,11 +43,9 @@ const userInitials = computed(() => {
 
 <template>
   <div>
-    <UHeader title="RSVP" to="/" :toggle="false">
+    <UHeader to="/" :toggle="false">
       <template #title>
-        <NuxtLink to="/" class="flex items-center">
-          <span class="text-xl font-black tracking-tight text-gray-900 dark:text-white">RSVP</span>
-        </NuxtLink>
+        <span></span>
       </template>
 
       <template #right>

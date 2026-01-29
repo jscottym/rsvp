@@ -3,7 +3,6 @@ const authStore = useAuthStore();
 const eventsStore = useEventsStore();
 
 const loading = ref(true);
-const selectedDate = ref<Date | null>(null);
 const showPastEvents = ref(false);
 
 type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST';
@@ -104,51 +103,8 @@ const pastEvents = computed(
   () => eventsStore.dashboardPast as DashboardEvent[]
 );
 
-// Filtered events based on selected date only
-const filteredEvents = computed(() => {
-  let events = [...upcomingEvents.value];
-
-  // Filter by selected date
-  if (selectedDate.value) {
-    const selectedDay = new Date(selectedDate.value);
-    selectedDay.setHours(0, 0, 0, 0);
-
-    events = events.filter((e) => {
-      const eventDate = new Date(e.datetime);
-      eventDate.setHours(0, 0, 0, 0);
-      return eventDate.getTime() === selectedDay.getTime();
-    });
-  }
-
-  return events;
-});
-
-// Format selected date for display
-const selectedDateDisplay = computed(() => {
-  if (!selectedDate.value) return null;
-
-  const date = new Date(selectedDate.value);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  date.setHours(0, 0, 0, 0);
-
-  if (date.getTime() === today.getTime()) {
-    return 'Today';
-  }
-
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-});
-
-function clearDateFilter() {
-  selectedDate.value = null;
-}
-
 useSeoMeta({
-  title: 'RSVP - Create and Join Events',
+  title: 'Create and Join Events',
   description:
     'Create events people can RSVP to, or RSVP to events others created.',
 });
@@ -186,51 +142,12 @@ useSeoMeta({
       />
     </div>
 
-    <div v-else class="pb-24">
-      <!-- Calendar -->
-      <div class="pt-4 pb-2 bg-gray-50 dark:bg-gray-950">
-        <DashboardCalendar
-          :events="upcomingEvents"
-          :selected-date="selectedDate"
-          @select="selectedDate = $event"
-        />
-
-        <!-- Real-time connection indicator -->
-        <div
-          v-if="allEventSlugs.length > 0"
-          class="flex items-center justify-center gap-1.5 mt-2"
-        >
-          <span
-            class="w-2 h-2 rounded-full"
-            :class="isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'"
-          />
-          <span class="text-xs text-gray-400">
-            {{ isConnected ? 'Live updates' : 'Connecting...' }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Date filter indicator + Show All -->
-      <div
-        v-if="selectedDate"
-        class="flex items-center justify-between px-4 py-2"
-      >
-        <p class="text-sm font-medium text-gray-900 dark:text-white">
-          {{ selectedDateDisplay }}
-        </p>
-        <button
-          @click="clearDateFilter"
-          class="text-sm text-primary-500 hover:text-primary-600 font-medium"
-        >
-          Show All
-        </button>
-      </div>
-
+    <div v-else class="pb-24 pt-4">
       <!-- Events list -->
       <div class="px-4 space-y-3">
         <!-- Empty state -->
         <div
-          v-if="filteredEvents.length === 0 && upcomingEvents.length === 0"
+          v-if="upcomingEvents.length === 0"
           class="text-center py-12"
         >
           <UIcon
@@ -245,18 +162,9 @@ useSeoMeta({
           </p>
         </div>
 
-        <!-- No events for filter -->
-        <div v-else-if="filteredEvents.length === 0" class="text-center py-8">
-          <p class="text-gray-500 dark:text-gray-400">
-            No events<span v-if="selectedDateDisplay">
-              on {{ selectedDateDisplay }}</span
-            >
-          </p>
-        </div>
-
         <!-- Event cards -->
         <NuxtLink
-          v-for="event in filteredEvents"
+          v-for="event in upcomingEvents"
           :key="event.id"
           :to="`/e/${event.slug}`"
           class="block"

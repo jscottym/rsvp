@@ -275,5 +275,5 @@ const spotOpenedUp = computed(() => {
         </div>
       </div>
     </div>
-  </button>
+  </div>
 </template>
