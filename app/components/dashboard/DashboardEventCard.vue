@@ -34,6 +34,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   claimSpot: [slug: string];
+  click: [slug: string];
 }>();
 
 const claiming = ref(false);
@@ -163,15 +164,16 @@ const spotOpenedUp = computed(() => {
 </script>
 
 <template>
-  <NuxtLink
-    :to="`/e/${event.slug}`"
+  <button
+    type="button"
     :class="[
-      'group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-200 active:scale-[0.98]',
+      'group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-200 active:scale-[0.98] text-left w-full',
       statusConfig.bg,
       statusConfig.border,
       statusConfig.ring,
       'border',
     ]"
+    @click="emit('click', event.slug)"
   >
     <!-- Spot opened up banner -->
     <div
@@ -276,5 +278,5 @@ const spotOpenedUp = computed(() => {
         </div>
       </div>
     </div>
-  </NuxtLink>
+  </button>
 </template>

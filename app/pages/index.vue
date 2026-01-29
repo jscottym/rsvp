@@ -1,10 +1,45 @@
 <script setup lang="ts">
 const authStore = useAuthStore();
 const eventsStore = useEventsStore();
+const route = useRoute();
+const router = useRouter();
 
 const loading = ref(true);
 const selectedDate = ref<Date | null>(null);
 const showPastEvents = ref(false);
+
+// Event modal state
+const showEventModal = ref(false);
+const selectedEventSlug = ref<string | null>(null);
+
+// Watch for eventId in query string
+watch(
+  () => route.query.eventId,
+  (eventId) => {
+    if (eventId && typeof eventId === 'string') {
+      selectedEventSlug.value = eventId;
+      showEventModal.value = true;
+    } else {
+      showEventModal.value = false;
+      selectedEventSlug.value = null;
+    }
+  },
+  { immediate: true }
+);
+
+// Open event modal
+function openEventModal(slug: string) {
+  router.push({ query: { eventId: slug } });
+}
+
+// Close event modal
+async function closeEventModal() {
+  router.push({ query: {} });
+  // Refresh dashboard to get any RSVP changes
+  if (authStore.isAuthenticated) {
+    await eventsStore.fetchDashboardEvents();
+  }
+}
 
 type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST';
 
@@ -259,6 +294,7 @@ useSeoMeta({
           v-for="event in filteredEvents"
           :key="event.id"
           :event="event"
+          @click="openEventModal"
           @claim-spot="handleClaimSpot"
         />
       </div>
@@ -297,10 +333,19 @@ useSeoMeta({
             :key="event.id"
             :event="event"
             class="opacity-60"
+            @click="openEventModal"
             @claim-spot="handleClaimSpot"
           />
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Event Detail Modal -->
+  <EventDetailModal
+    v-if="selectedEventSlug"
+    v-model:open="showEventModal"
+    :slug="selectedEventSlug"
+    @close="closeEventModal"
+  />
 </template>

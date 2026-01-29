@@ -1,65 +1,43 @@
 <script setup lang="ts">
-import type { NavigationMenuItem } from '@nuxt/ui'
+import type { DropdownMenuItem } from '@nuxt/ui'
 
 const authStore = useAuthStore()
 const showAuthModal = ref(false)
 const route = useRoute()
 
-const userMenuItems = computed(() => [
-  [{
-    label: 'My Events',
-    icon: 'i-heroicons-calendar-days',
-    to: '/'
-  }],
-  [{
-    label: 'My Groups',
-    icon: 'i-heroicons-user-group',
-    to: '/groups'
-  }],
-  [{
-    label: 'Sign Out',
-    icon: 'i-heroicons-arrow-right-on-rectangle',
-    onSelect: () => authStore.logout()
-  }]
+// User dropdown menu items
+const userMenuItems = computed<DropdownMenuItem[][]>(() => [
+  [
+    {
+      label: authStore.currentUser?.name || 'User',
+      icon: 'i-heroicons-user-circle',
+      type: 'label'
+    },
+    {
+      label: authStore.currentUser?.phone || '',
+      icon: 'i-heroicons-phone',
+      type: 'label',
+      disabled: true
+    }
+  ],
+  [
+    {
+      label: 'Sign Out',
+      icon: 'i-heroicons-arrow-right-on-rectangle',
+      onSelect: () => authStore.logout()
+    }
+  ]
 ])
 
-const mobileMenuItems = computed<NavigationMenuItem[][]>(() => {
-  if (!authStore.isAuthenticated) {
-    return [[
-      {
-        label: 'Sign In',
-        icon: 'i-heroicons-arrow-right-end-on-rectangle',
-        onSelect: () => { showAuthModal.value = true }
-      }
-    ]]
-  }
-
-  return [
-    [
-      {
-        label: 'Create Game',
-        icon: 'i-heroicons-plus-circle',
-        to: '/create'
-      },
-      {
-        label: 'My Events',
-        icon: 'i-heroicons-calendar-days',
-        to: '/'
-      },
-      {
-        label: 'My Groups',
-        icon: 'i-heroicons-user-group',
-        to: '/groups'
-      }
-    ],
-    [
-      {
-        label: 'Sign Out',
-        icon: 'i-heroicons-arrow-right-on-rectangle',
-        onSelect: () => authStore.logout()
-      }
-    ]
-  ]
+// Get user initials for avatar
+const userInitials = computed(() => {
+  const name = authStore.currentUser?.name || ''
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
 })
 </script>
 
@@ -74,21 +52,46 @@ const mobileMenuItems = computed<NavigationMenuItem[][]>(() => {
 
       <template #right>
         <template v-if="authStore.isAuthenticated">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-heroicons-plus"
-            label="Create"
-            to="/create"
-            class="hidden sm:flex"
-          />
-          <UDropdownMenu :items="userMenuItems" :content="{ align: 'end' }">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              :label="authStore.currentUser?.name"
-              trailing-icon="i-heroicons-chevron-down-20-solid"
-            />
+          <!-- Navigation tabs -->
+          <div class="flex items-center gap-0.5 mr-2">
+            <NuxtLink
+              to="/"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              :class="route.path === '/' ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
+            >
+              <UIcon name="i-heroicons-calendar-days" class="w-4 h-4" />
+              <span>Events</span>
+            </NuxtLink>
+            <NuxtLink
+              to="/groups"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              :class="route.path.startsWith('/groups') ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
+            >
+              <UIcon name="i-heroicons-user-group" class="w-4 h-4" />
+              <span>Groups</span>
+            </NuxtLink>
+            <NuxtLink
+              to="/create"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              :class="route.path === '/create' ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
+            >
+              <UIcon name="i-heroicons-plus" class="w-4 h-4" />
+              <span>Create</span>
+            </NuxtLink>
+          </div>
+          <!-- User dropdown -->
+          <UDropdownMenu :items="userMenuItems" :content="{ align: 'end' }" :ui="{ content: 'min-w-48' }">
+            <button class="flex items-center gap-1 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <UAvatar
+                :text="userInitials"
+                size="sm"
+                class="bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400"
+              />
+              <UIcon
+                name="i-heroicons-chevron-down"
+                class="w-3 h-3 text-gray-400"
+              />
+            </button>
           </UDropdownMenu>
         </template>
         <template v-else>
@@ -99,14 +102,6 @@ const mobileMenuItems = computed<NavigationMenuItem[][]>(() => {
             @click="showAuthModal = true"
           />
         </template>
-      </template>
-
-      <template #body>
-        <UNavigationMenu
-          :items="mobileMenuItems"
-          orientation="vertical"
-          class="-mx-2.5"
-        />
       </template>
     </UHeader>
 
