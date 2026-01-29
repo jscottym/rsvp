@@ -143,79 +143,77 @@ useSeoMeta({
     </div>
 
     <div v-else class="pb-24 pt-4">
-      <!-- Events list -->
-      <div class="px-4 space-y-3">
-        <!-- Empty state -->
-        <div
-          v-if="upcomingEvents.length === 0"
-          class="text-center py-12"
-        >
-          <UIcon
-            name="i-heroicons-calendar-days"
-            class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4"
-          />
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            No events yet
-          </h2>
-          <p class="text-gray-600 dark:text-gray-400 mb-6">
-            Create your first event or RSVP to one!
-          </p>
-        </div>
+      <div class="max-w-2xl mx-auto px-4">
+        <!-- Events list -->
+        <div class="space-y-3">
+          <!-- Empty state -->
+          <div v-if="upcomingEvents.length === 0" class="text-center py-12">
+            <UIcon
+              name="i-heroicons-calendar-days"
+              class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4"
+            />
+            <h2
+              class="text-lg font-semibold text-gray-900 dark:text-white mb-2"
+            >
+              No events yet
+            </h2>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">
+              Create your first event or RSVP to one!
+            </p>
+          </div>
 
-        <!-- Event cards -->
-        <NuxtLink
-          v-for="event in upcomingEvents"
-          :key="event.id"
-          :to="`/e/${event.slug}`"
-          class="block"
-        >
-          <DashboardEventCard
-            :event="event"
-            @claim-spot="handleClaimSpot"
-          />
-        </NuxtLink>
-      </div>
-
-      <!-- Create Event button -->
-      <div class="px-4 mt-6">
-        <NuxtLink
-          to="/create"
-          class="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all duration-200 active:scale-[0.98]"
-        >
-          <UIcon name="i-heroicons-plus" class="w-6 h-6 text-white" />
-          <span class="text-lg font-bold text-white">Create Event</span>
-        </NuxtLink>
-      </div>
-
-      <!-- Past events (collapsible) -->
-      <div v-if="pastEvents.length > 0" class="px-4 mt-8">
-        <button
-          @click="showPastEvents = !showPastEvents"
-          class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-        >
-          <UIcon
-            :name="
-              showPastEvents
-                ? 'i-heroicons-chevron-down'
-                : 'i-heroicons-chevron-right'
-            "
-            class="w-4 h-4"
-          />
-          <span>Past Events ({{ pastEvents.length }})</span>
-        </button>
-
-        <div v-if="showPastEvents" class="mt-3 space-y-3">
+          <!-- Event cards -->
           <NuxtLink
-            v-for="event in pastEvents"
+            v-for="event in upcomingEvents"
             :key="event.id"
             :to="`/e/${event.slug}`"
-            class="block opacity-60"
+            class="block"
           >
-            <DashboardEventCard
-              :event="event"
-              @claim-spot="handleClaimSpot"
-            />
+            <DashboardEventCard :event="event" @claim-spot="handleClaimSpot" />
           </NuxtLink>
+        </div>
+
+        <!-- Create Event button -->
+        <div class="mt-6">
+          <NuxtLink
+            to="/create"
+            class="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all duration-200 active:scale-[0.98]"
+          >
+            <UIcon name="i-heroicons-plus" class="w-6 h-6 text-white" />
+            <span class="text-lg font-bold text-white">Create Event</span>
+          </NuxtLink>
+        </div>
+
+        <!-- Past events (collapsible) -->
+        <div v-if="pastEvents.length > 0" class="mt-8">
+          <button
+            @click="showPastEvents = !showPastEvents"
+            class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          >
+            <UIcon
+              :name="
+                showPastEvents
+                  ? 'i-heroicons-chevron-down'
+                  : 'i-heroicons-chevron-right'
+              "
+              class="w-4 h-4"
+            />
+            <span>Past Events ({{ pastEvents.length }})</span>
+          </button>
+
+          <div v-if="showPastEvents" class="mt-3 space-y-3">
+            <NuxtLink
+              v-for="event in pastEvents"
+              :key="event.id"
+              :to="`/e/${event.slug}`"
+              class="block opacity-60"
+            >
+              <DashboardEventCard
+                :event="event"
+                @claim-spot="handleClaimSpot"
+              />
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </div>
