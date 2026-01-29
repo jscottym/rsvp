@@ -1,5 +1,4 @@
 import prisma from '../../../utils/db'
-import { formatEventDate, formatEventTime } from '../../../utils/dateFormat'
 
 function getFirstName(name: string): string {
   return name.split(' ')[0]
@@ -66,17 +65,6 @@ export default defineEventHandler(async (event) => {
       phone: r.user?.phone || r.guestPhone || null
     }))
 
-  // Format event time/location
-  const eventDate = new Date(eventData.datetime)
-  const dayStr = formatEventDate(eventDate)
-  const timeStr = formatEventTime(eventDate)
-  const eventInfo = `${dayStr} ${timeStr} at ${eventData.location}`
-
-  // Build the event URL
-  const baseUrl = process.env.PUBLIC_URL || 'https://example.com'
-  const eventUrl = `${baseUrl}/e/${slug}`
-
-  // Collect phone numbers for recipients
   const confirmedPhones = confirmedPlayers
     .filter(p => p.phone)
     .map(p => p.phone!)
@@ -85,45 +73,23 @@ export default defineEventHandler(async (event) => {
     .filter(p => p.phone)
     .map(p => p.phone!)
 
-  let message: string
-  let phones: string[]
-
-  if (waitlistPlayers.length > 0) {
-    // Has waitlist: notify both confirmed players and waitlist
-    const confirmedFirstNames = confirmedPlayers.slice(0, 3).map(p => getFirstName(p.name))
-    const waitlistFirstNames = waitlistPlayers.slice(0, 3).map(p => getFirstName(p.name))
-
-    const confirmedGreeting = confirmedFirstNames.length > 0
-      ? `${confirmedFirstNames.join(', ')}, sorry... `
-      : ''
-
-    const waitlistNames = waitlistFirstNames.join(', ')
-
-    message = `${confirmedGreeting}I need to drop out. ${waitlistNames}, can any of you take my spot? ${eventInfo}\n\n${eventUrl}`
-    phones = [...confirmedPhones, ...waitlistPhones]
-  } else {
-    // No waitlist: just notify confirmed players
-    if (confirmedPlayers.length <= 4) {
-      // Name them individually
-      const firstNames = confirmedPlayers.map(p => getFirstName(p.name))
-      const greeting = firstNames.length > 0 ? `${firstNames.join(', ')}, sorry... ` : ''
-      message = `${greeting}I need to drop out for ${eventInfo}.`
-    } else {
-      // Too many to name
-      message = `Sorry, I need to drop out for ${eventInfo}.`
-    }
-    phones = confirmedPhones
-  }
-
-  const smsRecipients = phones.join(',')
-  const smsUrl = `sms:${smsRecipients}?body=${encodeURIComponent(message)}`
+  const confirmedFirstNames = confirmedPlayers.slice(0, 3).map(p => getFirstName(p.name))
+  const waitlistFirstNames = waitlistPlayers.slice(0, 3).map(p => getFirstName(p.name))
 
   return {
-    message,
-    phones,
-    smsUrl,
+    phones: waitlistPlayers.length > 0 
+      ? [...confirmedPhones, ...waitlistPhones]
+      : confirmedPhones,
     hasWaitlist: waitlistPlayers.length > 0,
     confirmedCount: confirmedPlayers.length,
-    waitlistCount: waitlistPlayers.length
+    waitlistCount: waitlistPlayers.length,
+    confirmedFirstNames,
+    waitlistFirstNames,
+    event: {
+      title: eventData.title,
+      datetime: eventData.datetime.toISOString(),
+      location: eventData.location,
+      slug
+    }
   }
 })

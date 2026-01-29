@@ -1,5 +1,4 @@
 import prisma from '../../../utils/db'
-import { formatEventDate } from '../../../utils/dateFormat'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
@@ -75,23 +74,13 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Format event date for message
-  const eventDate = new Date(eventData.datetime)
-  const dayStr = formatEventDate(eventDate)
-
-  // Build the message
-  const baseUrl = process.env.PUBLIC_URL || 'https://example.com'
-  const eventUrl = `${baseUrl}/e/${slug}`
-  const message = `A spot just opened up for ${eventData.title} on ${dayStr}!\n\nClaim it here: ${eventUrl}`
-
-  // Build SMS URL (comma-separated recipients for iOS, semicolon for Android - we'll use comma)
-  const smsRecipients = phones.join(',')
-  const smsUrl = `sms:${smsRecipients}?body=${encodeURIComponent(message)}`
-
   return {
     phones,
-    message,
-    smsUrl,
-    waitlistCount: phones.length
+    waitlistCount: phones.length,
+    event: {
+      title: eventData.title,
+      datetime: eventData.datetime.toISOString(),
+      slug
+    }
   }
 })

@@ -328,14 +328,36 @@ export const useEventsStore = defineStore('events', {
 
         const response = await $fetch<{
           phones: string[];
-          message: string;
-          smsUrl: string;
           waitlistCount: number;
+          event: {
+            title: string;
+            datetime: string;
+            slug: string;
+          };
         }>(`/api/events/${slug}/notify-waitlist`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        return response;
+        const eventDate = new Date(response.event.datetime);
+        const dayStr = eventDate.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        });
+
+        const baseUrl = window.location.origin;
+        const eventUrl = `${baseUrl}/e/${response.event.slug}`;
+        const message = `A spot just opened up for ${response.event.title} on ${dayStr}!\n\nClaim it here: ${eventUrl}`;
+
+        const smsRecipients = response.phones.join(',');
+        const smsUrl = `sms:${smsRecipients}?body=${encodeURIComponent(message)}`;
+
+        return {
+          phones: response.phones,
+          message,
+          smsUrl,
+          waitlistCount: response.waitlistCount,
+        };
       } catch (error) {
         console.error('Failed to get waitlist notify data:', error);
         throw error;
@@ -351,16 +373,65 @@ export const useEventsStore = defineStore('events', {
 
         const response = await $fetch<{
           phones: string[];
-          message: string;
-          smsUrl: string;
           hasWaitlist: boolean;
           confirmedCount: number;
           waitlistCount: number;
+          confirmedFirstNames: string[];
+          waitlistFirstNames: string[];
+          event: {
+            title: string;
+            datetime: string;
+            location: string;
+            slug: string;
+          };
         }>(`/api/events/${slug}/drop-out-message`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        return response;
+        const eventDate = new Date(response.event.datetime);
+        const dayStr = eventDate.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        });
+        const timeStr = eventDate.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+        const eventInfo = `${dayStr} ${timeStr} at ${response.event.location}`;
+
+        const baseUrl = window.location.origin;
+        const eventUrl = `${baseUrl}/e/${response.event.slug}`;
+
+        let message: string;
+
+        if (response.hasWaitlist) {
+          const confirmedGreeting = response.confirmedFirstNames.length > 0
+            ? `${response.confirmedFirstNames.join(', ')}, sorry... `
+            : '';
+          const waitlistNames = response.waitlistFirstNames.join(', ');
+          message = `${confirmedGreeting}I need to drop out. ${waitlistNames}, can any of you take my spot? ${eventInfo}\n\n${eventUrl}`;
+        } else {
+          if (response.confirmedCount <= 4 && response.confirmedFirstNames.length > 0) {
+            const greeting = `${response.confirmedFirstNames.join(', ')}, sorry... `;
+            message = `${greeting}I need to drop out for ${eventInfo}.`;
+          } else {
+            message = `Sorry, I need to drop out for ${eventInfo}.`;
+          }
+        }
+
+        const smsRecipients = response.phones.join(',');
+        const smsUrl = `sms:${smsRecipients}?body=${encodeURIComponent(message)}`;
+
+        return {
+          phones: response.phones,
+          message,
+          smsUrl,
+          hasWaitlist: response.hasWaitlist,
+          confirmedCount: response.confirmedCount,
+          waitlistCount: response.waitlistCount,
+        };
       } catch (error) {
         console.error('Failed to get drop out message data:', error);
         throw error;

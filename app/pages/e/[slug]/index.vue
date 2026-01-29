@@ -647,6 +647,40 @@ function formatTimeAgo(datetime: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function formatActivityMessage(activity: EventActivity): string {
+  if (activity.type === 'EVENT_EDITED' && activity.comment) {
+    try {
+      const data = JSON.parse(activity.comment);
+      if (data.datetime) {
+        const date = new Date(data.datetime);
+        const timeStr = date.toLocaleString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+        return activity.message.replace(/\btime\b/, `time to ${timeStr}`);
+      }
+    } catch {
+      // Not valid JSON, return original message
+    }
+  }
+  return activity.message;
+}
+
+function getActivityComment(activity: EventActivity): string | null {
+  if (activity.type === 'EVENT_EDITED' && activity.comment) {
+    try {
+      JSON.parse(activity.comment);
+      return null;
+    } catch {
+      return activity.comment;
+    }
+  }
+  return activity.comment;
+}
+
 const displayedActivities = computed(() => activities.value.slice(0, 10));
 
 useSeoMeta({
@@ -1751,17 +1785,17 @@ function closeManageGroupsModal() {
                   ]"
                 />
                 <span class="text-gray-700 dark:text-gray-300">{{
-                  activity.message
+                  formatActivityMessage(activity)
                 }}</span>
                 <span class="ml-auto flex-shrink-0 text-xs text-gray-400">{{
                   formatTimeAgo(activity.createdAt)
                 }}</span>
               </div>
               <p
-                v-if="activity.comment"
+                v-if="getActivityComment(activity)"
                 class="mt-0.5 ml-3.5 truncate text-xs text-gray-500 italic dark:text-gray-400"
               >
-                "{{ activity.comment }}"
+                "{{ getActivityComment(activity) }}"
               </p>
             </li>
           </TransitionGroup>

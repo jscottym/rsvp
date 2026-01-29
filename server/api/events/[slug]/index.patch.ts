@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import prisma from '../../../utils/db'
 import { broadcastToEvent, type EventUpdatePayload } from '../../../utils/broadcast'
-import { formatEventDateTime } from '../../../utils/dateFormat'
 
 const updateEventSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -89,6 +88,7 @@ export default defineEventHandler(async (event) => {
 
   // Build the changes summary for activity log
   const changes: string[] = []
+  let newDatetime: Date | null = null
 
   if (data.location && data.location !== existingEvent.location) {
     changes.push(`location to ${data.location}`)
@@ -97,8 +97,8 @@ export default defineEventHandler(async (event) => {
     const newDate = new Date(data.datetime)
     const oldDate = existingEvent.datetime
     if (newDate.getTime() !== oldDate.getTime()) {
-      const timeStr = formatEventDateTime(newDate)
-      changes.push(`time to ${timeStr}`)
+      changes.push('time')
+      newDatetime = newDate
     }
   }
   if (data.maxPlayers !== undefined && data.maxPlayers !== existingEvent.maxPlayers) {
@@ -128,6 +128,9 @@ export default defineEventHandler(async (event) => {
   if (changes.length > 0) {
     const userName = auth.user.nickname || auth.user.name
     const activityMessage = `${userName} changed ${changes.join(', ')}`
+    const activityComment = newDatetime 
+      ? JSON.stringify({ datetime: newDatetime.toISOString() })
+      : null
 
     activity = await prisma.eventActivity.create({
       data: {
@@ -135,7 +138,7 @@ export default defineEventHandler(async (event) => {
         userId: auth.user.id,
         type: 'EVENT_EDITED',
         message: activityMessage,
-        comment: null
+        comment: activityComment
       }
     })
   }
