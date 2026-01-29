@@ -1,4 +1,5 @@
 import prisma from '../../../utils/db'
+import { formatEventDate, formatEventTime } from '../../../utils/dateFormat'
 
 function getFirstName(name: string): string {
   return name.split(' ')[0]
@@ -67,16 +68,8 @@ export default defineEventHandler(async (event) => {
 
   // Format event time/location
   const eventDate = new Date(eventData.datetime)
-  const dayStr = eventDate.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-  })
-  const timeStr = eventDate.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  })
+  const dayStr = formatEventDate(eventDate)
+  const timeStr = formatEventTime(eventDate)
   const eventInfo = `${dayStr} ${timeStr} at ${eventData.location}`
 
   // Build the event URL

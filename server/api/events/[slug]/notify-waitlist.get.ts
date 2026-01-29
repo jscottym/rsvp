@@ -1,4 +1,5 @@
 import prisma from '../../../utils/db'
+import { formatEventDate } from '../../../utils/dateFormat'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
@@ -76,11 +77,7 @@ export default defineEventHandler(async (event) => {
 
   // Format event date for message
   const eventDate = new Date(eventData.datetime)
-  const dayStr = eventDate.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-  })
+  const dayStr = formatEventDate(eventDate)
 
   // Build the message
   const baseUrl = process.env.PUBLIC_URL || 'https://example.com'

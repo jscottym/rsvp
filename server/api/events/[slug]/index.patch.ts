@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import prisma from '../../../utils/db'
 import { broadcastToEvent, type EventUpdatePayload } from '../../../utils/broadcast'
+import { formatEventDateTime } from '../../../utils/dateFormat'
 
 const updateEventSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -96,13 +97,7 @@ export default defineEventHandler(async (event) => {
     const newDate = new Date(data.datetime)
     const oldDate = existingEvent.datetime
     if (newDate.getTime() !== oldDate.getTime()) {
-      const timeStr = newDate.toLocaleString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      })
+      const timeStr = formatEventDateTime(newDate)
       changes.push(`time to ${timeStr}`)
     }
   }
