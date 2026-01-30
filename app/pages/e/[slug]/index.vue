@@ -1252,7 +1252,7 @@ function closeManageGroupsModal() {
             @click="closeModal"
           >
             <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
-            <span class="text-sm font-medium">Back</span>
+            <span class="text-sm font-medium">Back to Home</span>
           </button>
           <div v-if="event" class="flex items-center gap-2">
             <button
