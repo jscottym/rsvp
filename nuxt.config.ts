@@ -2,11 +2,14 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  ssr: false,
+  ssr: true,
 
-  modules: ['@nuxt/ui', '@pinia/nuxt'],
+  modules: ['@nuxt/ui', '@pinia/nuxt', 'nuxt-og-image'],
 
   routeRules: {
+    '/': { ssr: false },
+    '/create': { ssr: false },
+    '/groups/**': { ssr: false },
     '/e/**': { ssr: true },
   },
 

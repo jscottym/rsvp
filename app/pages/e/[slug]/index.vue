@@ -709,14 +709,15 @@ function getActivityComment(activity: EventActivity): string | null {
 
 const displayedActivities = computed(() => activities.value.slice(0, 10));
 
+const siteOrigin = import.meta.server
+  ? useRequestURL().origin
+  : typeof window !== 'undefined'
+    ? window.location.origin
+    : '';
+const canonicalUrl = `${siteOrigin}/e/${slug.value}`;
+
 function getEventUrl(withTimestamp = false): string {
-  if (import.meta.server) {
-    const requestUrl = useRequestURL();
-    const baseUrl = `${requestUrl.origin}/e/${slug.value}`;
-    return withTimestamp ? `${baseUrl}?t=${Date.now()}` : baseUrl;
-  }
-  const baseUrl = `${window.location.origin}/e/${slug.value}`;
-  return withTimestamp ? `${baseUrl}?t=${Date.now()}` : baseUrl;
+  return withTimestamp ? `${canonicalUrl}?t=${Date.now()}` : canonicalUrl;
 }
 
 const eventForMeta = computed(() => event.value || eventData.value);
@@ -747,10 +748,29 @@ useSeoMeta({
   ogTitle: metaTitle,
   ogDescription: metaOgDescription,
   ogType: 'website',
-  ogUrl: computed(() => getEventUrl(false)),
-  twitterCard: 'summary',
+  ogUrl: canonicalUrl,
+  twitterCard: 'summary_large_image',
   twitterTitle: metaTitle,
   twitterDescription: metaDescription,
+});
+
+defineOgImage({
+  component: 'Event',
+  props: {
+    location: () => eventForMeta.value?.location || 'Event',
+    date: () =>
+      eventForMeta.value ? formatRelativeDay(eventForMeta.value.datetime) : '',
+    time: () =>
+      eventForMeta.value
+        ? formatTime(
+            eventForMeta.value.datetime,
+            eventForMeta.value.endDatetime
+          )
+        : '',
+    playerCount: () => eventForMeta.value?.rsvpCount ?? 0,
+    maxPlayers: () => eventForMeta.value?.maxPlayers ?? 0,
+    sportEmoji: '🏸',
+  },
 });
 
 // Organizer features
