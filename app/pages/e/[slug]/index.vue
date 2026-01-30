@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui';
 import type { EventActivity } from '~/composables/useEventWebSocket';
-import { formatRelativeDay } from '~/utils/dateFormat';
+import {
+  formatRelativeDay,
+  formatRelativeDayInTimezone,
+  formatTimeInTimezone,
+} from '~/utils/dateFormat';
 
 type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST';
 
@@ -758,15 +762,30 @@ defineOgImage({
   component: 'Event',
   props: {
     location: () => eventForMeta.value?.location || 'Event',
-    date: () =>
-      eventForMeta.value ? formatRelativeDay(eventForMeta.value.datetime) : '',
-    time: () =>
-      eventForMeta.value
-        ? formatTime(
-            eventForMeta.value.datetime,
-            eventForMeta.value.endDatetime
-          )
-        : '',
+    relativeDay: () => {
+      if (!eventForMeta.value) return '';
+      const tz = eventForMeta.value.timezone || 'America/Denver';
+      return formatRelativeDayInTimezone(eventForMeta.value.datetime, tz);
+    },
+    shortDate: () => {
+      if (!eventForMeta.value) return '';
+      const tz = eventForMeta.value.timezone || 'America/Denver';
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        month: 'numeric',
+        day: 'numeric',
+      });
+      return formatter.format(new Date(eventForMeta.value.datetime));
+    },
+    time: () => {
+      if (!eventForMeta.value) return '';
+      const tz = eventForMeta.value.timezone || 'America/Denver';
+      return formatTimeInTimezone(
+        eventForMeta.value.datetime,
+        eventForMeta.value.endDatetime,
+        tz
+      );
+    },
   },
 });
 
@@ -1918,6 +1937,15 @@ function closeManageGroupsModal() {
                   </p>
                 </li>
               </TransitionGroup>
+            </div>
+
+            <!-- SMS Reminders (Organizer only) -->
+            <div v-if="event.isOrganizer" class="mt-4">
+              <EventNotificationsCard
+                :slug="slug"
+                :event-datetime="event.datetime"
+                :confirmed-count="rsvpsIn.length"
+              />
             </div>
           </template>
 

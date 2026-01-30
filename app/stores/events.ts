@@ -25,6 +25,7 @@ interface Event {
   maxPlayers: number;
   allowSharing: boolean;
   sharingNote?: string;
+  timezone?: string;
   organizer?: {
     id: string;
     name: string;

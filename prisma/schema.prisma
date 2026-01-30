@@ -8,21 +8,24 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  firebaseUid String   @unique
-  phone       String   @unique
-  name        String
-  nickname    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String    @id @default(cuid())
+  firebaseUid    String    @unique
+  phone          String    @unique
+  name           String
+  nickname       String?
+  smsConsent     Boolean   @default(false)
+  smsConsentDate DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Relations
-  organizedEvents Event[]            @relation("EventOrganizer")
-  rsvps           Rsvp[]
-  ownedGroups     Group[]            @relation("GroupOwner")
-  groupMemberships GroupMember[]
-  joinRequests    GroupJoinRequest[]
-  activities      EventActivity[]
+  organizedEvents      Event[]             @relation("EventOrganizer")
+  rsvps                Rsvp[]
+  ownedGroups          Group[]             @relation("GroupOwner")
+  groupMemberships     GroupMember[]
+  joinRequests         GroupJoinRequest[]
+  activities           EventActivity[]
+  createdNotifications EventNotification[] @relation("CreatedNotifications")
 
   @@index([firebaseUid])
   @@index([phone])
@@ -41,14 +44,16 @@ model Event {
   maxPlayers    Int
   allowSharing  Boolean  @default(true)
   sharingNote   String?
+  timezone      String   @default("America/Denver")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
-  organizerId String
-  organizer   User   @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
-  rsvps       Rsvp[]
-  activities  EventActivity[]
+  organizerId   String
+  organizer     User                @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  rsvps         Rsvp[]
+  activities    EventActivity[]
+  notifications EventNotification[]
 
   @@index([slug])
   @@index([organizerId])
@@ -171,4 +176,90 @@ enum JoinRequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// ==================== Notification Models ====================
+
+model EventNotification {
+  id              String                   @id @default(cuid())
+  eventId         String
+  event           Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Scheduling
+  scheduleType    NotificationScheduleType
+  scheduledFor    DateTime
+  relativeMinutes Int?
+
+  // Content
+  messageTemplate String?
+
+  // Status
+  status          NotificationStatus       @default(PENDING)
+  processedAt     DateTime?
+
+  createdAt       DateTime                 @default(now())
+  createdById     String
+  createdBy       User                     @relation("CreatedNotifications", fields: [createdById], references: [id])
+
+  sentMessages    SentNotification[]
+
+  @@index([scheduledFor, status])
+  @@index([eventId])
+}
+
+enum NotificationScheduleType {
+  DAY_BEFORE
+  MORNING_OF
+  MINUTES_BEFORE
+  SPECIFIC_TIME
+}
+
+enum NotificationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  PARTIALLY_FAILED
+  FAILED
+  CANCELLED
+}
+
+model SentNotification {
+  id               String                  @id @default(cuid())
+  notificationId   String?
+  notification     EventNotification?      @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+
+  phoneNumber      String
+  recipientUserId  String?
+
+  messageBody      String
+  twilioMessageSid String?
+  twilioStatus     String?
+
+  status           SentNotificationStatus  @default(PENDING)
+  sentAt           DateTime?
+  errorMessage     String?
+
+  createdAt        DateTime                @default(now())
+
+  @@index([twilioMessageSid])
+  @@index([notificationId])
+}
+
+enum SentNotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+model InboundSms {
+  id               String   @id @default(cuid())
+  fromPhone        String
+  toPhone          String
+  messageBody      String
+  twilioMessageSid String   @unique
+  autoReplySent    Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  @@index([fromPhone])
 }

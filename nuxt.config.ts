@@ -6,6 +6,12 @@ export default defineNuxtConfig({
 
   modules: ['@nuxt/ui', '@pinia/nuxt', 'nuxt-og-image'],
 
+  ogImage: {
+    defaults: {
+      component: 'Event',
+    },
+  },
+
   routeRules: {
     '/': { ssr: false },
     '/create': { ssr: false },
@@ -27,6 +33,12 @@ export default defineNuxtConfig({
     firebaseAdminClientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
     firebaseAdminPrivateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY,
     databaseUrl: process.env.DATABASE_URL,
+    // Twilio
+    twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
+    twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
+    twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER,
+    // Cron security
+    cronSecret: process.env.CRON_SECRET,
     // Public keys (exposed to client)
     public: {
       firebaseApiKey: process.env.NUXT_PUBLIC_FIREBASE_API_KEY,

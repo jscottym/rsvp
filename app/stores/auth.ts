@@ -56,13 +56,13 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async login(idToken: string, name?: string) {
+    async login(idToken: string, name?: string, smsConsent?: boolean) {
       this.loading = true
 
       try {
         const response = await $fetch<{ user: User }>('/api/auth/firebase-login', {
           method: 'POST',
-          body: { idToken, name }
+          body: { idToken, name, smsConsent }
         })
 
         this.user = response.user

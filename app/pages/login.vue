@@ -1,22 +1,11 @@
 <script setup lang="ts">
 import { useLocalStorage } from '@vueuse/core';
 
-const props = defineProps<{
-  open: boolean;
-  redirectTo?: string;
-}>();
-
-const emit = defineEmits<{
-  'update:open': [value: boolean];
-  authenticated: [];
-}>();
-
-const isOpen = computed({
-  get: () => props.open,
-  set: (value) => emit('update:open', value),
-});
-
 const authStore = useAuthStore();
+const router = useRouter();
+const route = useRoute();
+const toast = useToast();
+
 const {
   setupRecaptcha,
   sendVerificationCode,
@@ -26,8 +15,7 @@ const {
   resetState,
   isRecaptchaReady,
 } = usePhoneAuth();
-const toast = useToast();
-const router = useRouter();
+
 const recaptchaReady = ref(false);
 const recaptchaInitializing = ref(false);
 
@@ -51,6 +39,12 @@ const name = ref('');
 const smsConsent = ref(false);
 const error = ref<string | null>(null);
 const firebaseUser = ref<any>(null);
+
+// Redirect URL from query params
+const redirectTo = computed(() => {
+  const redirect = route.query.redirect;
+  return typeof redirect === 'string' ? redirect : '/';
+});
 
 watch(phone, (newValue) => {
   phoneStorage.value = newValue;
@@ -78,6 +72,17 @@ watch(phoneAuthError, (val) => {
   if (val) error.value = val;
 });
 
+// Redirect if already authenticated
+watch(
+  () => authStore.isAuthenticated,
+  (isAuth) => {
+    if (isAuth) {
+      router.push(redirectTo.value);
+    }
+  },
+  { immediate: true }
+);
+
 async function initRecaptcha() {
   if (recaptchaInitializing.value) return;
   recaptchaInitializing.value = true;
@@ -98,19 +103,8 @@ async function initRecaptcha() {
   }
 }
 
-watch(isOpen, async (val) => {
-  if (val) {
-    await initRecaptcha();
-  } else {
-    // Reset state when closed (but keep phone number)
-    resetState();
-    recaptchaReady.value = false;
-    step.value = 'phone';
-    codeParts.value = [];
-    name.value = '';
-    smsConsent.value = false;
-    error.value = null;
-  }
+onMounted(async () => {
+  await initRecaptcha();
 });
 
 async function sendCode() {
@@ -133,7 +127,7 @@ async function sendCode() {
   if (success) {
     step.value = 'code';
     codeParts.value = Array.from({ length: 6 }, () => '');
-    // Focus the PIN input after DOM updates - use multiple nextTick to ensure component is mounted
+    // Focus the PIN input after DOM updates
     await nextTick();
     await nextTick();
     focusPinInput();
@@ -198,51 +192,69 @@ async function completeName() {
 }
 
 function completeAuth() {
-  isOpen.value = false;
-  emit('authenticated');
   toast.add({
     title: 'Welcome!',
     description: `Signed in as ${authStore.currentUser?.name}`,
     color: 'success',
   });
 
-  if (props.redirectTo) {
-    router.push(props.redirectTo);
-  }
+  router.push(redirectTo.value);
 }
+
+useSeoMeta({
+  title: 'Sign In - Pickup Sports',
+  description: 'Sign up to get notified about games in your area',
+});
 </script>
 
 <template>
-  <UModal
-    v-model:open="isOpen"
-    title="Sign In"
-    description="Verify your phone number to continue"
-  >
-    <template #body>
-      <div class="space-y-6">
+  <div class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div class="max-w-md mx-auto px-4 py-12">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white text-3xl mb-4 shadow-lg shadow-emerald-500/30">
+          <span>🏐</span>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          Pickup Sports
+        </h1>
+        <p class="text-gray-600 dark:text-gray-400">
+          Sign up to get notified about games in your area
+        </p>
+      </div>
+
+      <!-- Auth Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-6 sm:p-8">
         <!-- Step 1: Phone Number -->
-        <div v-if="step === 'phone'">
-          <UFormField label="Phone Number">
+        <div v-if="step === 'phone'" class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Phone Number
+            </label>
             <UInput
               :model-value="phone"
               type="tel"
               placeholder="(555) 123-4567"
               size="xl"
               :disabled="loading"
+              :ui="{
+                base: 'text-lg',
+              }"
               @update:model-value="handlePhoneInput"
               @keyup.enter="sendCode"
             />
-          </UFormField>
-          <p class="mt-2 text-sm text-gray-500">
-            We'll send a verification code via SMS
-          </p>
+            <p class="mt-2 text-sm text-gray-500">
+              We'll send a verification code via SMS
+            </p>
+          </div>
 
+          <!-- SMS Consent Checkbox -->
           <label
-            class="flex items-start gap-3 p-4 mt-4 rounded-xl bg-gray-50 dark:bg-gray-800 cursor-pointer border-2 transition-all"
+            class="flex items-start gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700 cursor-pointer border-2 transition-all"
             :class="[
               smsConsent
                 ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                : 'border-gray-200 dark:border-gray-700',
+                : 'border-gray-200 dark:border-gray-600',
             ]"
           >
             <input
@@ -258,52 +270,99 @@ function completeAuth() {
               varies. Message and data rates may apply.
             </span>
           </label>
+
+          <UButton
+            color="primary"
+            size="xl"
+            block
+            :label="recaptchaReady ? 'Send Verification Code' : 'Initializing...'"
+            :loading="loading"
+            :disabled="!isValidPhone || !recaptchaReady || !smsConsent"
+            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+            @click="sendCode"
+          />
+
+          <!-- Hidden reCAPTCHA container -->
+          <div id="recaptcha-container" class="hidden"></div>
         </div>
 
         <!-- Step 2: Verification Code -->
-        <div v-else-if="step === 'code'">
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Enter the 6-digit code sent to {{ formatPhone(phone) }}
-          </p>
-          <div ref="pinInputRef">
-            <UPinInput
-              v-model="codeParts"
-              :length="6"
-              size="xl"
-              otp
-              type="number"
-              :disabled="loading"
-              @complete="verifyCode"
-              :ui="{
-                root: 'justify-center gap-2 sm:gap-3',
-                base: 'h-14 w-10 sm:h-16 sm:w-14 text-xl sm:text-2xl font-semibold',
-              }"
-            />
+        <div v-else-if="step === 'code'" class="space-y-6">
+          <div class="text-center">
+            <p class="text-gray-600 dark:text-gray-400 mb-6">
+              Enter the 6-digit code sent to<br>
+              <span class="font-semibold text-gray-900 dark:text-white">{{ formatPhone(phone) }}</span>
+            </p>
+            <div ref="pinInputRef">
+              <UPinInput
+                v-model="codeParts"
+                :length="6"
+                size="xl"
+                otp
+                type="number"
+                :disabled="loading"
+                @complete="verifyCode"
+                :ui="{
+                  root: 'justify-center gap-2 sm:gap-3',
+                  base: 'h-14 w-10 sm:h-16 sm:w-14 text-xl sm:text-2xl font-semibold',
+                }"
+              />
+            </div>
           </div>
+
           <UButton
-            variant="link"
-            size="lg"
-            class="mt-4"
-            @click="step = 'phone'"
-          >
-            Use a different number
-          </UButton>
+            color="primary"
+            size="xl"
+            block
+            label="Verify Code"
+            :loading="loading"
+            :disabled="code.length !== 6"
+            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+            @click="verifyCode"
+          />
+
+          <div class="text-center">
+            <UButton
+              variant="link"
+              size="lg"
+              @click="step = 'phone'"
+            >
+              Use a different number
+            </UButton>
+          </div>
         </div>
 
         <!-- Step 3: Name (for new users) -->
-        <div v-else-if="step === 'name'">
-          <UFormField label="Your Name">
+        <div v-else-if="step === 'name'" class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Your Name
+            </label>
             <UInput
               v-model="name"
               placeholder="Enter your name"
               size="xl"
               :disabled="loading"
+              :ui="{
+                base: 'text-lg',
+              }"
               @keyup.enter="completeName"
             />
-          </UFormField>
-          <p class="mt-2 text-sm text-gray-500">
-            This will be shown to other players
-          </p>
+            <p class="mt-2 text-sm text-gray-500">
+              This will be shown to other players
+            </p>
+          </div>
+
+          <UButton
+            color="primary"
+            size="xl"
+            block
+            label="Continue"
+            :loading="loading"
+            :disabled="!name.trim()"
+            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+            @click="completeName"
+          />
         </div>
 
         <!-- Error message -->
@@ -313,48 +372,22 @@ function completeAuth() {
           variant="soft"
           :title="error"
           icon="i-heroicons-exclamation-circle"
+          class="mt-6"
         />
       </div>
-    </template>
 
-    <template #footer>
-      <div class="flex justify-end gap-3">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          size="xl"
-          label="Cancel"
-          :disabled="loading"
-          @click="isOpen = false"
-        />
-        <UButton
-          v-if="step === 'phone'"
-          color="primary"
-          size="xl"
-          :label="recaptchaReady ? 'Send Code' : 'Initializing...'"
-          :loading="loading"
-          :disabled="!isValidPhone || !recaptchaReady || !smsConsent"
-          @click="sendCode"
-        />
-        <UButton
-          v-else-if="step === 'code'"
-          color="primary"
-          size="xl"
-          label="Verify"
-          :loading="loading"
-          :disabled="code.length !== 6"
-          @click="verifyCode"
-        />
-        <UButton
-          v-else-if="step === 'name'"
-          color="primary"
-          size="xl"
-          label="Continue"
-          :loading="loading"
-          :disabled="!name.trim()"
-          @click="completeName"
-        />
+      <!-- Footer -->
+      <div class="text-center mt-6 space-y-4">
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          Already have an account? Just enter your number above.
+        </p>
+        <p class="text-xs text-gray-400 dark:text-gray-500">
+          By signing up, you agree to our
+          <NuxtLink to="/terms" class="underline hover:text-gray-600 dark:hover:text-gray-300">Terms of Service</NuxtLink>
+          and
+          <NuxtLink to="/privacy" class="underline hover:text-gray-600 dark:hover:text-gray-300">Privacy Policy</NuxtLink>
+        </p>
       </div>
-    </template>
-  </UModal>
+    </div>
+  </div>
 </template>

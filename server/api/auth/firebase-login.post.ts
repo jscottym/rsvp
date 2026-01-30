@@ -4,7 +4,8 @@ import prisma from '../../utils/db'
 
 const loginSchema = z.object({
   idToken: z.string().min(1),
-  name: z.string().min(1).max(100).optional()
+  name: z.string().min(1).max(100).optional(),
+  smsConsent: z.boolean().optional()
 })
 
 export default defineEventHandler(async (event) => {
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { idToken, name } = parsed.data
+  const { idToken, name, smsConsent } = parsed.data
 
   // Verify the Firebase token
   const decodedToken = await verifyFirebaseToken(idToken)
@@ -58,7 +59,9 @@ export default defineEventHandler(async (event) => {
       data: {
         firebaseUid,
         phone,
-        name
+        name,
+        smsConsent: smsConsent ?? false,
+        smsConsentDate: smsConsent ? new Date() : null
       }
     })
   } else if (name && name !== user.name) {

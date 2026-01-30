@@ -7,6 +7,7 @@ interface EventFormData {
   location: string;
   description: string;
   allowSharing: boolean;
+  timezone: string;
 }
 
 const props = defineProps<{
@@ -103,6 +104,9 @@ const startTimeSlots = computed(() => {
   return slots;
 });
 
+// Auto-detect browser timezone
+const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 // Form with smart defaults for pickleball
 const form = reactive<EventFormData>({
   date: props.initialData?.date || nextDays.value[0]?.value || '',
@@ -112,6 +116,7 @@ const form = reactive<EventFormData>({
   location: props.initialData?.location || '',
   description: props.initialData?.description || '',
   allowSharing: props.initialData?.allowSharing ?? true,
+  timezone: props.initialData?.timezone || detectedTimezone || 'America/Denver',
 });
 
 // Watch for initialData changes (for edit mode)
@@ -128,6 +133,7 @@ watch(
         form.description = newData.description;
       if (newData.allowSharing !== undefined)
         form.allowSharing = newData.allowSharing;
+      if (newData.timezone) form.timezone = newData.timezone;
     }
   },
   { deep: true }

@@ -91,6 +91,7 @@ export default defineEventHandler(async (event) => {
       maxPlayers: eventData.maxPlayers,
       allowSharing: eventData.allowSharing,
       sharingNote: eventData.sharingNote,
+      timezone: eventData.timezone,
       organizer: {
         id: eventData.organizer.id,
         name: eventData.organizer.name,

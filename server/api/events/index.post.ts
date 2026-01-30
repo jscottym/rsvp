@@ -12,7 +12,8 @@ const createEventSchema = z.object({
   minPlayers: z.number().int().min(1).default(2),
   maxPlayers: z.number().int().min(1),
   allowSharing: z.boolean().default(true),
-  sharingNote: z.string().max(500).optional()
+  sharingNote: z.string().max(500).optional(),
+  timezone: z.string().max(100).default('America/Denver')
 })
 
 export default defineEventHandler(async (event) => {
@@ -86,6 +87,7 @@ export default defineEventHandler(async (event) => {
       maxPlayers: data.maxPlayers,
       allowSharing: data.allowSharing,
       sharingNote: data.sharingNote,
+      timezone: data.timezone,
       organizerId: auth.user.id,
       // Auto-RSVP the organizer
       rsvps: {

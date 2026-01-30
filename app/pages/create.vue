@@ -27,6 +27,7 @@ interface EventFormData {
   location: string;
   description: string;
   allowSharing: boolean;
+  timezone: string;
 }
 
 async function handleFormSubmit(formData: EventFormData) {
@@ -75,6 +76,7 @@ async function createEvent(formData: EventFormData) {
       minPlayers: formData.maxPlayers,
       maxPlayers: formData.maxPlayers,
       allowSharing: formData.allowSharing,
+      timezone: formData.timezone,
     });
 
     toast.add({
