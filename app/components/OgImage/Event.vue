@@ -22,29 +22,22 @@ defineProps<{
     />
 
     <!-- Content -->
-    <div class="relative z-10 px-16 py-12">
-      <!-- Location - HUGE and bold -->
+    <div class="relative z-10 px-20">
+      <!-- Location - MASSIVE -->
       <h1
-        class="text-8xl font-black text-white leading-none tracking-tight mb-8"
-        style="text-shadow: 0 4px 24px rgba(0,0,0,0.15)"
+        class="font-black text-white leading-none tracking-tight mb-6"
+        style="font-size: 180px; text-shadow: 0 6px 32px rgba(0,0,0,0.2)"
       >
         {{ location }}
       </h1>
 
-      <!-- Date & Time - Large pill -->
-      <div
-        class="inline-flex items-center gap-4 bg-white/20 backdrop-blur-sm rounded-full px-8 py-4"
+      <!-- Date & Time combined -->
+      <p
+        class="text-white/90 font-semibold"
+        style="font-size: 64px"
       >
-        <span class="text-4xl font-bold text-white">{{ date }}</span>
-        <span class="text-4xl text-white/60">·</span>
-        <span class="text-4xl font-semibold text-white/90">{{ time }}</span>
-      </div>
+        {{ date }} · {{ time }}
+      </p>
     </div>
-
-    <!-- Bottom accent bar -->
-    <div
-      class="absolute bottom-0 left-0 right-0 h-2"
-      style="background: linear-gradient(90deg, #34d399, #10b981, #059669)"
-    />
   </div>
 </template>
