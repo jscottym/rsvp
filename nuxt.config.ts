@@ -6,6 +6,12 @@ export default defineNuxtConfig({
 
   modules: ['@nuxt/ui', '@pinia/nuxt', 'nuxt-og-image'],
 
+  ogImage: {
+    defaults: {
+      component: 'Event',
+    },
+  },
+
   routeRules: {
     '/': { ssr: false },
     '/create': { ssr: false },

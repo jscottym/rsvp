@@ -1,7 +1,8 @@
 <script setup lang="ts">
 defineProps<{
   location: string;
-  date: string;
+  relativeDay: string;
+  shortDate: string;
   time: string;
 }>();
 </script>
@@ -25,18 +26,26 @@ defineProps<{
     <div class="relative z-10 px-20">
       <!-- Location - MASSIVE -->
       <h1
-        class="font-black text-white leading-none tracking-tight mb-6"
+        class="font-black text-white leading-none tracking-tight mb-4"
         style="font-size: 180px; text-shadow: 0 6px 32px rgba(0,0,0,0.2)"
       >
         {{ location }}
       </h1>
 
-      <!-- Date & Time combined -->
+      <!-- Date & Time: "This Thu 1/26 · 4-6pm" -->
       <p
-        class="text-white/90 font-semibold"
+        class="text-white/90 font-semibold mb-8"
         style="font-size: 64px"
       >
-        {{ date }} · {{ time }}
+        {{ relativeDay }} {{ shortDate }} · {{ time }}
+      </p>
+
+      <!-- Are You In? -->
+      <p
+        class="font-bold text-white"
+        style="font-size: 80px; text-shadow: 0 4px 24px rgba(0,0,0,0.15)"
+      >
+        Are You In?
       </p>
     </div>
   </div>

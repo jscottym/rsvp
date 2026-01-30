@@ -758,8 +758,13 @@ defineOgImage({
   component: 'Event',
   props: {
     location: () => eventForMeta.value?.location || 'Event',
-    date: () =>
+    relativeDay: () =>
       eventForMeta.value ? formatRelativeDay(eventForMeta.value.datetime) : '',
+    shortDate: () => {
+      if (!eventForMeta.value) return '';
+      const d = new Date(eventForMeta.value.datetime);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    },
     time: () =>
       eventForMeta.value
         ? formatTime(
