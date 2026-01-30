@@ -767,9 +767,6 @@ defineOgImage({
             eventForMeta.value.endDatetime
           )
         : '',
-    playerCount: () => eventForMeta.value?.rsvpCount ?? 0,
-    maxPlayers: () => eventForMeta.value?.maxPlayers ?? 0,
-    sportEmoji: '🏸',
   },
 });
 
