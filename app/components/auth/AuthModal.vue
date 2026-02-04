@@ -30,6 +30,7 @@ const toast = useToast();
 const router = useRouter();
 const recaptchaReady = ref(false);
 const recaptchaInitializing = ref(false);
+const recaptchaFailed = ref(false);
 
 const step = ref<'phone' | 'code' | 'name'>('phone');
 const phoneStorage = useLocalStorage('pickup-sports-last-phone', '');
@@ -82,17 +83,22 @@ async function initRecaptcha() {
   if (recaptchaInitializing.value) return;
   recaptchaInitializing.value = true;
   recaptchaReady.value = false;
+  recaptchaFailed.value = false;
   error.value = null;
   await nextTick();
   try {
     await setupRecaptcha('recaptcha-container', () => {
       recaptchaReady.value = false;
+      recaptchaFailed.value = true;
+      // Auto-retry when reCAPTCHA expires
+      initRecaptcha();
     });
     recaptchaReady.value = true;
+    recaptchaFailed.value = false;
   } catch (e: any) {
     console.error('Failed to setup reCAPTCHA:', e);
-    error.value =
-      'Failed to initialize verification. Please refresh and try again.';
+    recaptchaFailed.value = true;
+    error.value = 'Failed to initialize verification. Tap below to retry.';
   } finally {
     recaptchaInitializing.value = false;
   }
@@ -105,6 +111,7 @@ watch(isOpen, async (val) => {
     // Reset state when closed (but keep phone number)
     resetState();
     recaptchaReady.value = false;
+    recaptchaFailed.value = false;
     step.value = 'phone';
     codeParts.value = [];
     name.value = '';
@@ -328,11 +335,19 @@ function completeAuth() {
           @click="isOpen = false"
         />
         <UButton
-          v-if="step === 'phone'"
+          v-if="step === 'phone' && recaptchaFailed"
+          color="primary"
+          size="xl"
+          label="Retry Verification"
+          :loading="recaptchaInitializing"
+          @click="initRecaptcha"
+        />
+        <UButton
+          v-else-if="step === 'phone'"
           color="primary"
           size="xl"
           :label="recaptchaReady ? 'Send Code' : 'Initializing...'"
-          :loading="loading"
+          :loading="loading || recaptchaInitializing"
           :disabled="!isValidPhone || !recaptchaReady || !smsConsent"
           @click="sendCode"
         />

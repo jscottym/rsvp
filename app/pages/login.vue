@@ -18,6 +18,7 @@ const {
 
 const recaptchaReady = ref(false);
 const recaptchaInitializing = ref(false);
+const recaptchaFailed = ref(false);
 
 const step = ref<'phone' | 'code' | 'name'>('phone');
 const phoneStorage = useLocalStorage('pickup-sports-last-phone', '');
@@ -87,17 +88,22 @@ async function initRecaptcha() {
   if (recaptchaInitializing.value) return;
   recaptchaInitializing.value = true;
   recaptchaReady.value = false;
+  recaptchaFailed.value = false;
   error.value = null;
   await nextTick();
   try {
     await setupRecaptcha('recaptcha-container', () => {
       recaptchaReady.value = false;
+      recaptchaFailed.value = true;
+      // Auto-retry when reCAPTCHA expires
+      initRecaptcha();
     });
     recaptchaReady.value = true;
+    recaptchaFailed.value = false;
   } catch (e: any) {
     console.error('Failed to setup reCAPTCHA:', e);
-    error.value =
-      'Failed to initialize verification. Please refresh and try again.';
+    recaptchaFailed.value = true;
+    error.value = 'Failed to initialize verification. Tap below to retry.';
   } finally {
     recaptchaInitializing.value = false;
   }
@@ -272,11 +278,22 @@ useSeoMeta({
           </label>
 
           <UButton
+            v-if="recaptchaFailed"
+            color="primary"
+            size="xl"
+            block
+            label="Retry Verification Setup"
+            :loading="recaptchaInitializing"
+            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+            @click="initRecaptcha"
+          />
+          <UButton
+            v-else
             color="primary"
             size="xl"
             block
             :label="recaptchaReady ? 'Send Verification Code' : 'Initializing...'"
-            :loading="loading"
+            :loading="loading || recaptchaInitializing"
             :disabled="!isValidPhone || !recaptchaReady || !smsConsent"
             class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
             @click="sendCode"
