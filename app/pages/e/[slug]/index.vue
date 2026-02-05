@@ -50,6 +50,8 @@ const savingGroup = ref(false);
 const newGroupName = ref('');
 const copied = ref(false);
 const notifyingWaitlist = ref(false);
+const loadingMessagePhones = ref(false);
+const messagePhones = ref<Map<string, string | null>>(new Map());
 
 // Activity log state
 const activities = ref<EventActivity[]>([]);
@@ -502,6 +504,13 @@ async function handleJoinWaitlist() {
   if (!authStore.isAuthenticated) {
     pendingRsvpStatus.value = 'WAITLIST';
     showAuthModal.value = true;
+    return;
+  }
+
+  // If user is currently IN, show the drop out warning before moving to waitlist
+  if (isConfirmed.value && shouldShowDropOutWarning.value) {
+    pendingStatusChange.value = 'WAITLIST';
+    showDropOutModal.value = true;
     return;
   }
 
@@ -958,6 +967,79 @@ async function notifyWaitlist() {
     notifyingWaitlist.value = false;
   }
 }
+
+// Message players functions
+async function fetchMessagePhones() {
+  if (messagePhones.value.size > 0) return; // Already fetched
+
+  const token = await authStore.getIdToken();
+  if (!token) return;
+
+  const response = await $fetch<{
+    rsvps: Array<{ id: string; status: string; phone: string | null }>;
+  }>(`/api/events/${slug.value}/rsvps`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  // Cache phones by rsvp id
+  for (const r of response.rsvps) {
+    messagePhones.value.set(r.id, r.phone);
+  }
+}
+
+function getPhonesForCurrentTab(): string[] {
+  const rsvpList = activeRsvpList.value;
+  return rsvpList
+    .map((r) => messagePhones.value.get(r.id))
+    .filter((phone): phone is string => !!phone);
+}
+
+async function sendQuickMessage() {
+  loadingMessagePhones.value = true;
+  try {
+    await fetchMessagePhones();
+    const phones = getPhonesForCurrentTab();
+
+    if (phones.length === 0) {
+      toast.add({
+        title: 'No phone numbers',
+        description: 'No players in this list have phone numbers',
+        color: 'warning',
+      });
+      return;
+    }
+
+    // Open SMS with empty body - user types their message
+    const smsUrl = `sms:${phones.join(',')}`;
+    window.open(smsUrl);
+  } catch (e: any) {
+    toast.add({
+      title: 'Error',
+      description: e.data?.message || 'Failed to get player phones',
+      color: 'error',
+    });
+  } finally {
+    loadingMessagePhones.value = false;
+  }
+}
+
+async function openCustomizeMessage() {
+  loadingMessagePhones.value = true;
+  try {
+    await fetchMessagePhones();
+    showMessageModal.value = true;
+  } catch (e: any) {
+    toast.add({
+      title: 'Error',
+      description: e.data?.message || 'Failed to get player phones',
+      color: 'error',
+    });
+  } finally {
+    loadingMessagePhones.value = false;
+  }
+}
+
+const currentTabPhones = computed(() => getPhonesForCurrentTab());
 
 const manageMenuItems = computed<DropdownMenuItem[][]>(() => {
   const items: DropdownMenuItem[][] = [
@@ -1459,54 +1541,54 @@ function closeManageGroupsModal() {
                   type="button"
                   :class="[
                     'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
-                    isFull
-                      ? selectedStatus === 'WAITLIST'
-                        ? 'bg-violet-100 ring-2 ring-violet-500 dark:bg-violet-900/30'
-                        : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
-                      : selectedStatus === 'IN' || isConfirmed
-                        ? 'bg-emerald-100 ring-2 ring-emerald-500 dark:bg-emerald-900/30'
+                    selectedStatus === 'IN' || isConfirmed
+                      ? 'bg-emerald-100 ring-2 ring-emerald-500 dark:bg-emerald-900/30'
+                      : isFull
+                        ? selectedStatus === 'WAITLIST'
+                          ? 'bg-violet-100 ring-2 ring-violet-500 dark:bg-violet-900/30'
+                          : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
                         : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
                   ]"
-                  @click="isFull ? handleJoinWaitlist() : selectStatus('IN')"
+                  @click="isFull && !isConfirmed ? handleJoinWaitlist() : selectStatus('IN')"
                 >
                   <UIcon
                     :name="
-                      isFull
-                        ? selectedStatus === 'WAITLIST'
-                          ? 'i-heroicons-clock-solid'
-                          : 'i-heroicons-clock'
-                        : selectedStatus === 'IN' || isConfirmed
-                          ? 'i-heroicons-check-circle-solid'
+                      selectedStatus === 'IN' || isConfirmed
+                        ? 'i-heroicons-check-circle-solid'
+                        : isFull
+                          ? selectedStatus === 'WAITLIST'
+                            ? 'i-heroicons-clock-solid'
+                            : 'i-heroicons-clock'
                           : 'i-heroicons-check-circle'
                     "
                     :class="[
                       'h-6 w-6',
-                      isFull
-                        ? selectedStatus === 'WAITLIST'
-                          ? 'text-violet-500'
-                          : 'text-gray-400'
-                        : selectedStatus === 'IN' || isConfirmed
-                          ? 'text-emerald-500'
+                      selectedStatus === 'IN' || isConfirmed
+                        ? 'text-emerald-500'
+                        : isFull
+                          ? selectedStatus === 'WAITLIST'
+                            ? 'text-violet-500'
+                            : 'text-gray-400'
                           : 'text-gray-400',
                     ]"
                   />
                   <span
                     :class="[
                       'text-xs font-medium',
-                      isFull
-                        ? selectedStatus === 'WAITLIST'
-                          ? 'text-violet-700 dark:text-violet-300'
-                          : 'text-gray-600 dark:text-gray-400'
-                        : selectedStatus === 'IN' || isConfirmed
-                          ? 'text-emerald-700 dark:text-emerald-300'
+                      selectedStatus === 'IN' || isConfirmed
+                        ? 'text-emerald-700 dark:text-emerald-300'
+                        : isFull
+                          ? selectedStatus === 'WAITLIST'
+                            ? 'text-violet-700 dark:text-violet-300'
+                            : 'text-gray-600 dark:text-gray-400'
                           : 'text-gray-600 dark:text-gray-400',
                     ]"
                   >
                     {{
-                      isFull
-                        ? 'Join Waitlist'
-                        : isConfirmed
-                          ? "You're In"
+                      isConfirmed
+                        ? "You're In"
+                        : isFull
+                          ? 'Join Waitlist'
                           : "I'm In"
                     }}
                   </span>
@@ -1872,15 +1954,30 @@ function closeManageGroupsModal() {
 
               <!-- Message Players Button (Organizer only) -->
               <div v-if="event.isOrganizer" class="mt-4">
-                <UButton
-                  color="neutral"
-                  variant="soft"
-                  icon="i-heroicons-chat-bubble-left-ellipsis"
-                  label="Message players"
-                  block
-                  size="lg"
-                  @click="showMessageModal = true"
-                />
+                <UButtonGroup class="w-full">
+                  <UButton
+                    color="neutral"
+                    variant="soft"
+                    icon="i-heroicons-chat-bubble-left-ellipsis"
+                    label="Message players"
+                    class="flex-1"
+                    size="lg"
+                    :loading="loadingMessagePhones"
+                    @click="sendQuickMessage"
+                  />
+                  <UDropdownMenu
+                    :items="[
+                      [{ label: 'Customize message...', icon: 'i-heroicons-pencil-square', onSelect: openCustomizeMessage }]
+                    ]"
+                  >
+                    <UButton
+                      color="neutral"
+                      variant="soft"
+                      icon="i-heroicons-chevron-down"
+                      size="lg"
+                    />
+                  </UDropdownMenu>
+                </UButtonGroup>
               </div>
             </div>
 
@@ -2222,22 +2319,8 @@ function closeManageGroupsModal() {
           <EventMessageModal
             v-if="event"
             v-model:open="showMessageModal"
-            :event="{
-              slug: event.slug,
-              title: event.title,
-              datetime: event.datetime,
-              endDatetime: event.endDatetime,
-              location: event.location,
-              isOrganizer: event.isOrganizer,
-            }"
-            :rsvps="
-              event.rsvps?.map((r) => ({
-                id: r.id,
-                status: r.status,
-                name: r.name,
-                phone: null,
-              })) || []
-            "
+            :event-slug="event.slug"
+            :phones="currentTabPhones"
           />
 
           <!-- Manage Groups Modal -->

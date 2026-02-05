@@ -21,7 +21,6 @@ const recaptchaInitializing = ref(false);
 const recaptchaFailed = ref(false);
 
 const step = ref<'phone' | 'code' | 'name'>('phone');
-const phoneStorage = useLocalStorage('pickup-sports-last-phone', '');
 
 function formatPhoneInput(input: string): string {
   const digits = input.replace(/\D/g, '');
@@ -32,7 +31,9 @@ function formatPhoneInput(input: string): string {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
 }
 
-const phone = ref(formatPhoneInput(phoneStorage.value || ''));
+// Initialize phone empty for SSR, load from localStorage on client
+const phone = ref('');
+const phoneStorage = useLocalStorage('pickup-sports-last-phone', '');
 const codeParts = ref<any[]>([]);
 const code = computed(() => codeParts.value.join(''));
 const pinInputRef = ref<HTMLElement | null>(null);
@@ -110,6 +111,10 @@ async function initRecaptcha() {
 }
 
 onMounted(async () => {
+  // Load saved phone from localStorage on client only (avoids hydration mismatch)
+  if (phoneStorage.value) {
+    phone.value = formatPhoneInput(phoneStorage.value);
+  }
   await initRecaptcha();
 });
 
@@ -188,7 +193,11 @@ async function completeName() {
 
   error.value = null;
   const token = await firebaseUser.value.getIdToken();
-  const result = await authStore.login(token, name.value.trim(), smsConsent.value);
+  const result = await authStore.login(
+    token,
+    name.value.trim(),
+    smsConsent.value
+  );
 
   if (result.success) {
     completeAuth();
@@ -214,15 +223,14 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+  <div
+    class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800"
+  >
     <div class="max-w-md mx-auto px-4 py-12">
       <!-- Header -->
       <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white text-3xl mb-4 shadow-lg shadow-emerald-500/30">
-          <span>🏐</span>
-        </div>
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Pickup Sports
+          RSVP
         </h1>
         <p class="text-gray-600 dark:text-gray-400">
           Sign up to get notified about games in your area
@@ -234,7 +242,9 @@ useSeoMeta({
         <!-- Step 1: Phone Number -->
         <div v-if="step === 'phone'" class="space-y-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Phone Number
             </label>
             <UInput
@@ -292,7 +302,9 @@ useSeoMeta({
             color="primary"
             size="xl"
             block
-            :label="recaptchaReady ? 'Send Verification Code' : 'Initializing...'"
+            :label="
+              recaptchaReady ? 'Send Verification Code' : 'Initializing...'
+            "
             :loading="loading || recaptchaInitializing"
             :disabled="!isValidPhone || !recaptchaReady || !smsConsent"
             class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
@@ -307,8 +319,10 @@ useSeoMeta({
         <div v-else-if="step === 'code'" class="space-y-6">
           <div class="text-center">
             <p class="text-gray-600 dark:text-gray-400 mb-6">
-              Enter the 6-digit code sent to<br>
-              <span class="font-semibold text-gray-900 dark:text-white">{{ formatPhone(phone) }}</span>
+              Enter the 6-digit code sent to<br />
+              <span class="font-semibold text-gray-900 dark:text-white">{{
+                formatPhone(phone)
+              }}</span>
             </p>
             <div ref="pinInputRef">
               <UPinInput
@@ -339,11 +353,7 @@ useSeoMeta({
           />
 
           <div class="text-center">
-            <UButton
-              variant="link"
-              size="lg"
-              @click="step = 'phone'"
-            >
+            <UButton variant="link" size="lg" @click="step = 'phone'">
               Use a different number
             </UButton>
           </div>
@@ -352,7 +362,9 @@ useSeoMeta({
         <!-- Step 3: Name (for new users) -->
         <div v-else-if="step === 'name'" class="space-y-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Your Name
             </label>
             <UInput
@@ -400,9 +412,17 @@ useSeoMeta({
         </p>
         <p class="text-xs text-gray-400 dark:text-gray-500">
           By signing up, you agree to our
-          <NuxtLink to="/terms" class="underline hover:text-gray-600 dark:hover:text-gray-300">Terms of Service</NuxtLink>
+          <NuxtLink
+            to="/terms"
+            class="underline hover:text-gray-600 dark:hover:text-gray-300"
+            >Terms of Service</NuxtLink
+          >
           and
-          <NuxtLink to="/privacy" class="underline hover:text-gray-600 dark:hover:text-gray-300">Privacy Policy</NuxtLink>
+          <NuxtLink
+            to="/privacy"
+            class="underline hover:text-gray-600 dark:hover:text-gray-300"
+            >Privacy Policy</NuxtLink
+          >
         </p>
       </div>
     </div>

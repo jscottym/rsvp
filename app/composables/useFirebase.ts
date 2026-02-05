@@ -53,6 +53,7 @@ export function useFirebase() {
 }
 
 let recaptchaExpiredCallback: (() => void) | null = null
+let recaptchaContainerId = 0
 
 export function usePhoneAuth() {
   const { getFirebaseAuth } = useFirebase()
@@ -75,64 +76,44 @@ export function usePhoneAuth() {
     document.querySelectorAll('.grecaptcha-badge').forEach(el => el.remove())
   }
 
-  const setupRecaptcha = async (containerId: string, onExpired?: () => void, maxRetries = 3) => {
+  const setupRecaptcha = async (containerId: string, onExpired?: () => void) => {
     const auth = getFirebaseAuth()
 
     // Store the expiration callback
     recaptchaExpiredCallback = onExpired || null
 
-    let lastError: Error | null = null
+    // Always clear existing verifier first
+    clearRecaptcha()
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        // Always clear existing verifier first
-        clearRecaptcha()
+    // Wait for DOM cleanup
+    await new Promise(resolve => setTimeout(resolve, 100))
 
-        // Wait for DOM cleanup - Firebase reCAPTCHA needs time to fully teardown
-        // Use exponential backoff: 300ms, 600ms, 1200ms
-        const delay = 300 * Math.pow(2, attempt)
-        await new Promise(resolve => setTimeout(resolve, delay))
-
-        const container = document.getElementById(containerId)
-        if (!container) {
-          throw new Error(`Container #${containerId} not found`)
-        }
-
-        // Clear any existing reCAPTCHA widgets in the container
-        container.innerHTML = ''
-
-        globalRecaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
-          size: 'invisible',
-          callback: () => {
-            // reCAPTCHA solved
-          },
-          'expired-callback': () => {
-            console.log('reCAPTCHA expired, resetting...')
-            clearRecaptcha()
-            if (recaptchaExpiredCallback) {
-              recaptchaExpiredCallback()
-            }
-          }
-        })
-
-        // Pre-render the reCAPTCHA widget
-        await globalRecaptchaVerifier.render()
-
-        // Success - return early
-        return
-      } catch (e: any) {
-        console.warn(`reCAPTCHA setup attempt ${attempt + 1} failed:`, e.message)
-        lastError = e
-
-        // If this isn't the last attempt, continue to retry
-        if (attempt < maxRetries - 1) {
-          continue
-        }
-      }
+    const container = document.getElementById(containerId)
+    if (!container) {
+      throw new Error(`Container #${containerId} not found`)
     }
 
-    // All retries failed
-    throw lastError || new Error('Failed to initialize reCAPTCHA after multiple attempts')
+    // Create a fresh inner container with unique ID to avoid "already rendered" error
+    recaptchaContainerId++
+    const innerContainerId = `recaptcha-inner-${recaptchaContainerId}`
+    container.innerHTML = `<div id="${innerContainerId}"></div>`
+
+    globalRecaptchaVerifier = new RecaptchaVerifier(auth, innerContainerId, {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved
+      },
+      'expired-callback': () => {
+        console.log('reCAPTCHA expired, resetting...')
+        clearRecaptcha()
+        if (recaptchaExpiredCallback) {
+          recaptchaExpiredCallback()
+        }
+      }
+    })
+
+    // Pre-render the reCAPTCHA widget
+    await globalRecaptchaVerifier.render()
   }
 
   const isRecaptchaReady = () => {
