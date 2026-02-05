@@ -264,7 +264,7 @@ const spotOpenedUp = computed(() => {
             </div>
             <div
               v-if="attendee.userId === event.organizer.id"
-              class="text-[10px] font-medium text-primary-600 dark:text-primary-400 text-center"
+              class="text-[10px] font-medium text-teal-600 dark:text-teal-400 text-center"
             >
               Organizer
             </div>
@@ -277,7 +277,7 @@ const spotOpenedUp = computed(() => {
 
         <!-- Player count -->
         <div class="shrink-0">
-          <span class="text-lg font-bold text-primary-500">{{
+          <span class="text-lg font-bold text-teal-500">{{
             event.rsvpCount
           }}</span>
           <span class="text-xs text-gray-400">/{{ event.maxPlayers }}</span>

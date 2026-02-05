@@ -222,7 +222,7 @@ function hasAnyEvents(day: CalendarDay) {
           <!-- Month indicator for first of month (not on bottom row to preserve event dots) -->
           <span
             v-if="day.isFirstOfMonth && !day.isSelected && index < 21"
-            class="text-[8px] font-medium text-primary-500 leading-tight"
+            class="text-[8px] font-medium text-teal-500 leading-tight"
           >
             {{ day.monthName }}
           </span>

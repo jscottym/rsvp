@@ -55,7 +55,7 @@ const userInitials = computed(() => {
             <NuxtLink
               to="/"
               class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              :class="route.path === '/' ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
+              :class="route.path === '/' ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
             >
               <UIcon name="i-heroicons-calendar-days" class="w-4 h-4" />
               <span>Events</span>
@@ -63,7 +63,7 @@ const userInitials = computed(() => {
             <NuxtLink
               to="/groups"
               class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              :class="route.path.startsWith('/groups') ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
+              :class="route.path.startsWith('/groups') ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
             >
               <UIcon name="i-heroicons-user-group" class="w-4 h-4" />
               <span>Groups</span>
@@ -71,7 +71,7 @@ const userInitials = computed(() => {
             <NuxtLink
               to="/create"
               class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              :class="route.path === '/create' ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
+              :class="route.path === '/create' ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'"
             >
               <UIcon name="i-heroicons-plus" class="w-4 h-4" />
               <span>Create</span>
@@ -83,7 +83,7 @@ const userInitials = computed(() => {
               <UAvatar
                 :text="userInitials"
                 size="sm"
-                class="bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400"
+                class="bg-teal-100 text-teal-600 dark:bg-teal-900 dark:text-teal-400"
               />
               <UIcon
                 name="i-heroicons-chevron-down"

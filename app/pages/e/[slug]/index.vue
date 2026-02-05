@@ -1406,7 +1406,7 @@ function closeManageGroupsModal() {
           <div v-if="event" class="flex items-center gap-2">
             <button
               v-if="event.allowSharing"
-              class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
               @click="showShareModal = true"
             >
               <UIcon name="i-heroicons-share" class="w-4 h-4" />
@@ -1480,7 +1480,7 @@ function closeManageGroupsModal() {
                 </div>
                 <div class="flex items-center gap-1 text-sm shrink-0">
                   <span
-                    class="font-medium text-primary-600 dark:text-primary-400"
+                    class="font-medium text-teal-600 dark:text-teal-400"
                     >{{ formatRelativeDay(event.datetime) }}</span
                   >
                   <span class="text-gray-400">·</span>
@@ -1514,7 +1514,7 @@ function closeManageGroupsModal() {
                 <div class="shrink-0">
                   <span
                     class="text-lg font-bold"
-                    :class="isFull ? 'text-amber-500' : 'text-primary-600'"
+                    :class="isFull ? 'text-amber-500' : 'text-teal-600'"
                     >{{ event.rsvpCount ?? 0 }}</span
                   >
                   <span class="text-gray-400">/{{ event.maxPlayers }}</span>
@@ -1777,7 +1777,7 @@ function closeManageGroupsModal() {
                         ? 'What needs to happen?'
                         : 'Add a note...'
                     "
-                    class="focus:border-primary-500 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 pr-20 text-gray-900 placeholder-gray-400 transition-colors focus:ring-0 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    class="focus:border-teal-500 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 pr-20 text-gray-900 placeholder-gray-400 transition-colors focus:ring-0 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     @keydown="handleNoteKeydown"
                     @blur="saveNote()"
                   />
@@ -1800,7 +1800,7 @@ function closeManageGroupsModal() {
                       class="rounded-lg p-1.5 transition-colors"
                       :class="
                         hasUnsavedNote
-                          ? 'text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20'
+                          ? 'text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20'
                           : 'text-teal-500'
                       "
                       @click="saveNote"
