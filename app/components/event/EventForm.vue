@@ -429,30 +429,43 @@ defineExpose({
       ]"
     >
       <div :class="{ 'max-w-lg mx-auto': !inline }">
+        <!-- Inline mode: Cancel and Save buttons side by side -->
+        <div v-if="inline" class="flex gap-3">
+          <UButton
+            size="xl"
+            color="neutral"
+            variant="outline"
+            class="h-14 text-lg font-semibold rounded-xl"
+            @click="emit('cancel')"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            size="xl"
+            :loading="submitting"
+            :disabled="!isValid"
+            class="h-14 text-lg font-bold rounded-xl flex-1 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 transition-all duration-200 active:scale-[0.98]"
+            @click="handleSubmit"
+          >
+            {{ submitLabel || 'Save Changes' }}
+          </UButton>
+        </div>
+        <!-- Full page mode: Single large submit button -->
         <UButton
+          v-else
           size="xl"
           block
           :loading="submitting"
           :disabled="!isValid"
-          :class="[
-            inline
-              ? 'h-14 text-lg font-bold rounded-xl'
-              : 'h-20 flex flex-col items-center justify-center gap-1 text-xl font-bold rounded-2xl shadow-xl shadow-teal-500/30',
-          ]"
-          class="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 transition-all duration-200 active:scale-[0.98]"
+          class="h-20 flex flex-col items-center justify-center gap-1 text-xl font-bold rounded-2xl shadow-xl shadow-teal-500/30 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 transition-all duration-200 active:scale-[0.98]"
           @click="handleSubmit"
         >
-          <template v-if="inline">
-            {{ submitLabel || 'Save Changes' }}
-          </template>
-          <template v-else>
-            <span>{{
-              submitLabel || `Create ${form.maxPlayers}-player Game`
-            }}</span>
-            <span v-if="isValid" class="text-sm font-normal opacity-90">{{
-              eventDetailsSummary
-            }}</span>
-          </template>
+          <span>{{
+            submitLabel || `Create ${form.maxPlayers}-player Game`
+          }}</span>
+          <span v-if="isValid" class="text-sm font-normal opacity-90">{{
+            eventDetailsSummary
+          }}</span>
         </UButton>
       </div>
     </div>
