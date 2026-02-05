@@ -740,8 +740,9 @@ const eventForMeta = computed(() => event.value || eventData.value);
 const metaTitle = computed(() => {
   const evt = eventForMeta.value;
   if (!evt) return 'Event - RSVP';
-  const date = formatRelativeDay(evt.datetime);
-  const time = formatTime(evt.datetime, evt.endDatetime);
+  const tz = evt.timezone || 'America/Denver';
+  const date = formatRelativeDayInTimezone(evt.datetime, tz);
+  const time = formatTimeInTimezone(evt.datetime, evt.endDatetime, tz);
   return `${evt.location} ${date}, ${time}`;
 });
 
@@ -773,6 +774,7 @@ defineOgImage({
   component: 'Event',
   props: {
     location: () => eventForMeta.value?.location || 'Event',
+    maxPlayers: () => eventForMeta.value?.maxPlayers || 4,
     relativeDay: () => {
       if (!eventForMeta.value) return '';
       const tz = eventForMeta.value.timezone || 'America/Denver';
@@ -1406,7 +1408,7 @@ function closeManageGroupsModal() {
           <div v-if="event" class="flex items-center gap-2">
             <button
               v-if="event.allowSharing"
-              class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-coral-600 dark:text-coral-400 hover:bg-coral-50 dark:hover:bg-coral-900/20 rounded-lg transition-colors"
               @click="showShareModal = true"
             >
               <UIcon name="i-heroicons-share" class="w-4 h-4" />
@@ -2162,11 +2164,13 @@ function closeManageGroupsModal() {
               </TransitionGroup>
             </div>
 
-            <!-- SMS Reminders (Organizer only) -->
-            <div v-if="event.isOrganizer" class="mt-4">
+            <!-- SMS Reminder (visible to all authenticated users) -->
+            <div v-if="authStore.user" class="mt-4">
               <EventNotificationsCard
                 :slug="slug"
                 :event-datetime="event.datetime"
+                :event-timezone="event.timezone"
+                :is-organizer="event.isOrganizer"
                 :confirmed-count="rsvpsIn.length"
               />
             </div>

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import prisma from '../../utils/db'
 import { generateEventSlug } from '../../utils/slug'
+import { calculateScheduledTime } from '../../utils/twilio'
 
 const createEventSchema = z.object({
   title: z.string().min(1).max(200),
@@ -73,7 +74,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Create event and auto-RSVP the organizer as "IN"
+  // Calculate default reminder time (6pm night before)
+  const scheduledFor = calculateScheduledTime(data.datetime, 'DAY_BEFORE')
+  const shouldCreateReminder = scheduledFor > new Date() && scheduledFor < data.datetime
+
+  // Create event, auto-RSVP the organizer as "IN", and create default reminder
   const newEvent = await prisma.event.create({
     data: {
       slug,
@@ -95,7 +100,18 @@ export default defineEventHandler(async (event) => {
           userId: auth.user.id,
           status: 'IN'
         }
-      }
+      },
+      // Auto-create default reminder (6pm night before) if it's in the future
+      ...(shouldCreateReminder && {
+        notifications: {
+          create: {
+            scheduleType: 'DAY_BEFORE',
+            scheduledFor,
+            status: 'PENDING',
+            createdById: auth.user.id,
+          }
+        }
+      })
     }
   })
 

@@ -1,19 +1,27 @@
 <script setup lang="ts">
-interface Notification {
+type ScheduleType = 'NONE' | 'DAY_BEFORE' | 'HOURS_BEFORE';
+
+interface Recipient {
+  name: string;
+  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
+  sentAt: string | null;
+}
+
+interface Reminder {
   id: string;
-  scheduleType: 'DAY_BEFORE' | 'MORNING_OF' | 'MINUTES_BEFORE' | 'SPECIFIC_TIME';
+  scheduleType: ScheduleType;
+  hoursBeforeValue?: number;
   scheduledFor: string;
-  relativeMinutes: number | null;
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'PARTIALLY_FAILED' | 'FAILED' | 'CANCELLED';
-  recipientCount: number;
-  sentCount: number;
-  failedCount: number;
-  createdAt: string;
+  processedAt?: string | null;
+  recipients?: Recipient[];
 }
 
 interface Props {
   slug: string;
   eventDatetime: string;
+  eventTimezone: string;
+  isOrganizer: boolean;
   confirmedCount: number;
 }
 
@@ -22,116 +30,134 @@ const props = defineProps<Props>();
 const authStore = useAuthStore();
 const toast = useToast();
 
-const notifications = ref<Notification[]>([]);
+const reminder = ref<Reminder | null>(null);
 const loading = ref(false);
-const showCreateModal = ref(false);
-const creating = ref(false);
-const deletingId = ref<string | null>(null);
+const saving = ref(false);
+const expanded = ref(false);
 
-async function fetchNotifications() {
+// Local state for selection
+const selectedType = ref<ScheduleType>('DAY_BEFORE');
+const hoursValue = ref(2);
+
+const scheduleOptions: Array<{ value: ScheduleType; label: string; description: string }> = [
+  { value: 'NONE', label: 'No Reminder', description: 'Don\'t send a reminder' },
+  { value: 'DAY_BEFORE', label: 'Night Before', description: '6 PM day before' },
+  { value: 'HOURS_BEFORE', label: 'Hours Before', description: 'Choose time' },
+];
+
+const hoursOptions = [1, 2, 3, 4];
+
+async function fetchReminder() {
   loading.value = true;
   try {
     const token = await authStore.getIdToken();
-    const response = await $fetch<{ notifications: Notification[] }>(
-      `/api/events/${props.slug}/notifications`,
-      {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+    const response = await $fetch<{ reminder: Reminder | null }>(`/api/events/${props.slug}/notifications`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    reminder.value = response.reminder;
+
+    // Sync local state with fetched data
+    if (response.reminder) {
+      selectedType.value = response.reminder.scheduleType;
+      if (response.reminder.hoursBeforeValue) {
+        hoursValue.value = response.reminder.hoursBeforeValue;
       }
-    );
-    notifications.value = response.notifications;
+    } else {
+      selectedType.value = 'NONE';
+    }
   } catch (e) {
-    console.error('Failed to fetch notifications:', e);
+    console.error('Failed to fetch reminder:', e);
   } finally {
     loading.value = false;
   }
 }
 
-async function createNotification(data: {
-  scheduleType: string;
-  relativeMinutes?: number;
-}) {
-  creating.value = true;
+async function updateReminder(type: ScheduleType, hours?: number) {
+  saving.value = true;
   try {
     const token = await authStore.getIdToken();
-    const response = await $fetch<{ notification: Notification }>(
-      `/api/events/${props.slug}/notifications`,
-      {
-        method: 'POST',
-        body: data,
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }
-    );
+    const body: { scheduleType: ScheduleType; hoursBeforeValue?: number } = {
+      scheduleType: type,
+    };
+    if (type === 'HOURS_BEFORE' && hours) {
+      body.hoursBeforeValue = hours;
+    }
 
-    notifications.value.push(response.notification);
-    notifications.value.sort(
-      (a, b) => new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime()
-    );
-
-    showCreateModal.value = false;
-    toast.add({
-      title: 'Reminder scheduled!',
-      description: 'SMS will be sent at the scheduled time',
-      color: 'success',
-    });
-  } catch (e: any) {
-    toast.add({
-      title: 'Error',
-      description: e.data?.message || 'Failed to create notification',
-      color: 'error',
-    });
-  } finally {
-    creating.value = false;
-  }
-}
-
-async function cancelNotification(id: string) {
-  deletingId.value = id;
-  try {
-    const token = await authStore.getIdToken();
-    await $fetch(`/api/events/${props.slug}/notifications/${id}`, {
-      method: 'DELETE',
+    const response = await $fetch<{ reminder: Reminder | null }>(`/api/events/${props.slug}/notifications`, {
+      method: 'PUT',
+      body,
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
-    const idx = notifications.value.findIndex((n) => n.id === id);
-    if (idx !== -1) {
-      notifications.value[idx]!.status = 'CANCELLED';
-    }
+    reminder.value = response.reminder;
 
-    toast.add({
-      title: 'Reminder cancelled',
-      color: 'success',
-    });
+    if (type === 'NONE') {
+      toast.add({
+        title: 'Reminder removed',
+        color: 'neutral',
+      });
+    } else {
+      toast.add({
+        title: 'Reminder updated',
+        description: `SMS will be sent ${formatScheduleDescription(type, hours)}`,
+        color: 'success',
+      });
+    }
   } catch (e: any) {
     toast.add({
       title: 'Error',
-      description: e.data?.message || 'Failed to cancel notification',
+      description: e.data?.message || 'Failed to update reminder',
       color: 'error',
     });
+    // Reset local state on error
+    if (reminder.value) {
+      selectedType.value = reminder.value.scheduleType;
+      if (reminder.value.hoursBeforeValue) {
+        hoursValue.value = reminder.value.hoursBeforeValue;
+      }
+    }
   } finally {
-    deletingId.value = null;
+    saving.value = false;
   }
 }
 
-function formatScheduleType(type: string, minutes: number | null): string {
+function selectScheduleType(type: ScheduleType) {
+  if (!props.isOrganizer || isPastOrProcessed.value) return;
+
+  selectedType.value = type;
+
+  // For HOURS_BEFORE, don't save immediately - wait for hours selection
+  if (type === 'HOURS_BEFORE') {
+    return;
+  }
+
+  updateReminder(type);
+}
+
+function selectHours(hours: number) {
+  if (!props.isOrganizer || isPastOrProcessed.value) return;
+
+  hoursValue.value = hours;
+  updateReminder('HOURS_BEFORE', hours);
+}
+
+function formatScheduleDescription(type: ScheduleType, hours?: number): string {
   switch (type) {
+    case 'NONE':
+      return '';
     case 'DAY_BEFORE':
-      return 'Day before';
-    case 'MORNING_OF':
-      return 'Morning of';
-    case 'MINUTES_BEFORE':
-      if (!minutes) return 'Before event';
-      if (minutes < 60) return `${minutes} min before`;
-      const hours = minutes / 60;
-      return `${hours} ${hours === 1 ? 'hour' : 'hours'} before`;
+      return 'at 6 PM the night before';
+    case 'HOURS_BEFORE':
+      return `${hours || hoursValue.value} hour${(hours || hoursValue.value) === 1 ? '' : 's'} before the event`;
     default:
-      return type;
+      return '';
   }
 }
 
-function formatTime(datetime: string): string {
+function formatScheduledTime(datetime: string): string {
   const date = new Date(datetime);
   return date.toLocaleString('en-US', {
+    weekday: 'short',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -140,177 +166,191 @@ function formatTime(datetime: string): string {
   });
 }
 
-function getStatusColor(
-  status: string
-): 'primary' | 'success' | 'warning' | 'error' | 'neutral' {
-  switch (status) {
-    case 'PENDING':
-      return 'primary';
-    case 'PROCESSING':
-      return 'warning';
-    case 'COMPLETED':
-      return 'success';
-    case 'PARTIALLY_FAILED':
-      return 'warning';
-    case 'FAILED':
-      return 'error';
-    case 'CANCELLED':
-      return 'neutral';
-    default:
-      return 'neutral';
-  }
+function formatSentTime(datetime: string | null): string {
+  if (!datetime) return '';
+  const date = new Date(datetime);
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'PENDING':
-      return 'Scheduled';
-    case 'PROCESSING':
-      return 'Sending...';
-    case 'COMPLETED':
-      return 'Sent';
-    case 'PARTIALLY_FAILED':
-      return 'Partial';
-    case 'FAILED':
-      return 'Failed';
-    case 'CANCELLED':
-      return 'Cancelled';
-    default:
-      return status;
-  }
-}
+const isPastOrProcessed = computed(() => {
+  if (!reminder.value) return false;
+  return reminder.value.status !== 'PENDING';
+});
 
-const pendingCount = computed(
-  () => notifications.value.filter((n) => n.status === 'PENDING').length
-);
+const isCompleted = computed(() => {
+  return reminder.value?.status === 'COMPLETED' || reminder.value?.status === 'PARTIALLY_FAILED';
+});
 
-const canAddMore = computed(() => pendingCount.value < 5);
+const sentCount = computed(() => {
+  if (!reminder.value?.recipients) return 0;
+  return reminder.value.recipients.filter(r => r.status === 'SENT' || r.status === 'DELIVERED').length;
+});
 
-// Fetch on mount
+const failedCount = computed(() => {
+  if (!reminder.value?.recipients) return 0;
+  return reminder.value.recipients.filter(r => r.status === 'FAILED').length;
+});
+
 onMounted(() => {
-  fetchNotifications();
+  fetchReminder();
 });
 </script>
 
 <template>
   <div class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
-    <div class="flex items-center justify-between mb-3">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-heroicons-bell" class="w-5 h-5 text-blue-500" />
-        <h3 class="font-semibold text-gray-900 dark:text-white">SMS Reminders</h3>
-      </div>
-      <UButton
-        v-if="canAddMore"
-        color="primary"
-        variant="soft"
-        size="xs"
-        icon="i-heroicons-plus"
-        label="Add"
-        @click="showCreateModal = true"
-      />
-    </div>
-
-    <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-4">
+    <!-- Header -->
+    <div class="flex items-center gap-2 mb-3">
+      <UIcon name="i-heroicons-bell" class="w-5 h-5 text-teal-500" />
+      <h3 class="font-semibold text-gray-900 dark:text-white">SMS Reminder</h3>
       <UIcon
+        v-if="saving"
         name="i-heroicons-arrow-path"
-        class="w-5 h-5 animate-spin text-gray-400"
+        class="w-4 h-4 text-gray-400 animate-spin ml-auto"
       />
     </div>
 
-    <!-- Empty state -->
-    <div
-      v-else-if="notifications.length === 0"
-      class="text-center py-4"
-    >
-      <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
-        No reminders scheduled yet
-      </p>
-      <UButton
-        color="primary"
-        variant="soft"
-        size="sm"
-        icon="i-heroicons-bell"
-        label="Schedule reminder"
-        @click="showCreateModal = true"
-      />
+    <!-- Loading state -->
+    <div v-if="loading" class="flex justify-center py-4">
+      <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-gray-400" />
     </div>
 
-    <!-- Notifications list -->
-    <div v-else class="space-y-2">
-      <div
-        v-for="notification in notifications"
-        :key="notification.id"
-        class="flex items-center gap-3 p-3 rounded-xl transition-colors"
-        :class="[
-          notification.status === 'PENDING'
-            ? 'bg-blue-50 dark:bg-blue-900/20'
-            : notification.status === 'COMPLETED'
-              ? 'bg-teal-50 dark:bg-teal-900/20'
-              : notification.status === 'CANCELLED'
-                ? 'bg-gray-50 dark:bg-gray-800/50 opacity-60'
-                : 'bg-gray-50 dark:bg-gray-800/50',
-        ]"
+    <!-- Completed state: Show "Reminder Sent" with expandable recipient list -->
+    <div v-else-if="isCompleted && reminder">
+      <button
+        class="w-full flex items-center gap-3 p-3 rounded-xl bg-teal-50 dark:bg-teal-900/20 transition-colors hover:bg-teal-100 dark:hover:bg-teal-900/30"
+        @click="expanded = !expanded"
       >
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <span
-              class="text-sm font-medium"
-              :class="[
-                notification.status === 'CANCELLED'
-                  ? 'text-gray-400 line-through'
-                  : 'text-gray-900 dark:text-white',
-              ]"
+        <UIcon name="i-heroicons-check-circle-solid" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+        <div class="flex-1 text-left">
+          <span class="font-medium text-teal-700 dark:text-teal-300">
+            Reminder Sent
+          </span>
+          <span class="text-sm text-teal-600 dark:text-teal-400 ml-1">
+            · {{ formatScheduledTime(reminder.processedAt || reminder.scheduledFor) }}
+          </span>
+        </div>
+        <UIcon
+          :name="expanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+          class="w-5 h-5 text-teal-500 flex-shrink-0"
+        />
+      </button>
+
+      <!-- Expandable recipient list -->
+      <Transition
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="opacity-0 max-h-0"
+        enter-to-class="opacity-100 max-h-96"
+        leave-active-class="transition-all duration-150 ease-in"
+        leave-from-class="opacity-100 max-h-96"
+        leave-to-class="opacity-0 max-h-0"
+      >
+        <div v-if="expanded && reminder.recipients" class="mt-2 overflow-hidden">
+          <div class="space-y-1 pt-2 border-t border-teal-100 dark:border-teal-800">
+            <div
+              v-for="(recipient, idx) in reminder.recipients"
+              :key="idx"
+              class="flex items-center gap-2 py-1.5 px-1 text-sm"
             >
-              {{ formatScheduleType(notification.scheduleType, notification.relativeMinutes) }}
-            </span>
-            <UBadge
-              :label="getStatusLabel(notification.status)"
-              :color="getStatusColor(notification.status)"
-              variant="soft"
-              size="xs"
-            />
+              <UIcon
+                :name="recipient.status === 'FAILED' ? 'i-heroicons-x-mark' : 'i-heroicons-check'"
+                :class="[
+                  'w-4 h-4 flex-shrink-0',
+                  recipient.status === 'FAILED' ? 'text-red-500' : 'text-teal-500'
+                ]"
+              />
+              <span class="flex-1 text-gray-700 dark:text-gray-300 truncate">
+                {{ recipient.name }}
+              </span>
+              <span class="text-xs text-gray-400 flex-shrink-0">
+                {{ recipient.status === 'FAILED' ? 'Failed' : formatSentTime(recipient.sentAt) }}
+              </span>
+            </div>
           </div>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {{ formatTime(notification.scheduledFor) }}
-            <template v-if="notification.status === 'COMPLETED' && notification.sentCount > 0">
-              · {{ notification.sentCount }} sent
-              <template v-if="notification.failedCount > 0">
-                , {{ notification.failedCount }} failed
-              </template>
-            </template>
-          </p>
+
+          <!-- Summary -->
+          <div v-if="failedCount > 0" class="mt-2 pt-2 border-t border-teal-100 dark:border-teal-800">
+            <p class="text-xs text-gray-500">
+              {{ sentCount }} sent, {{ failedCount }} failed
+            </p>
+          </div>
+        </div>
+      </Transition>
+    </div>
+
+    <!-- Pending/No reminder state -->
+    <template v-else>
+      <!-- Organizer: Editable options -->
+      <div v-if="isOrganizer" class="space-y-3">
+        <!-- Schedule type pills -->
+        <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+          <button
+            v-for="option in scheduleOptions"
+            :key="option.value"
+            class="flex-shrink-0 px-4 py-2.5 rounded-xl font-medium text-sm transition-all active:scale-95"
+            :class="[
+              selectedType === option.value
+                ? option.value === 'NONE'
+                  ? 'bg-gray-500 text-white shadow-lg shadow-gray-500/30'
+                  : 'bg-teal-500 text-white shadow-lg shadow-teal-500/30'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
+              isPastOrProcessed && 'opacity-50 cursor-not-allowed',
+            ]"
+            :disabled="isPastOrProcessed || saving"
+            @click="selectScheduleType(option.value)"
+          >
+            {{ option.label }}
+          </button>
         </div>
 
-        <!-- Cancel button (only for pending) -->
-        <button
-          v-if="notification.status === 'PENDING'"
-          class="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-          :disabled="deletingId === notification.id"
-          @click="cancelNotification(notification.id)"
-        >
-          <UIcon
-            :name="deletingId === notification.id ? 'i-heroicons-arrow-path' : 'i-heroicons-x-mark'"
-            :class="['w-4 h-4', deletingId === notification.id && 'animate-spin']"
-          />
-        </button>
+        <!-- Hours selector (when HOURS_BEFORE selected) -->
+        <div v-if="selectedType === 'HOURS_BEFORE'" class="space-y-2">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            How long before
+          </p>
+          <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+            <button
+              v-for="hours in hoursOptions"
+              :key="hours"
+              class="flex-shrink-0 px-4 py-2.5 rounded-xl font-medium text-sm transition-all active:scale-95"
+              :class="[
+                hoursValue === hours
+                  ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700',
+                isPastOrProcessed && 'opacity-50 cursor-not-allowed',
+              ]"
+              :disabled="isPastOrProcessed || saving"
+              @click="selectHours(hours)"
+            >
+              {{ hours }} {{ hours === 1 ? 'hour' : 'hours' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Preview/info when a reminder is set -->
+        <div v-if="reminder && selectedType !== 'NONE'" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 pt-1">
+          <UIcon name="i-heroicons-clock" class="w-4 h-4" />
+          <span>{{ formatScheduledTime(reminder.scheduledFor) }}</span>
+          <span class="text-gray-400">·</span>
+          <span>{{ confirmedCount }} {{ confirmedCount === 1 ? 'player' : 'players' }}</span>
+        </div>
       </div>
-    </div>
 
-    <!-- Rate limit warning -->
-    <p
-      v-if="!canAddMore && notifications.length > 0"
-      class="text-xs text-amber-600 dark:text-amber-400 mt-2 text-center"
-    >
-      Maximum 5 pending reminders per event
-    </p>
-
-    <!-- Create Modal -->
-    <EventCreateNotificationModal
-      v-model:open="showCreateModal"
-      :event-datetime="eventDatetime"
-      :confirmed-count="confirmedCount"
-      @create="createNotification"
-    />
+      <!-- Non-organizer: View only -->
+      <div v-else class="text-sm">
+        <div v-if="reminder" class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+          <UIcon name="i-heroicons-clock" class="w-4 h-4 text-teal-500" />
+          <span>
+            Reminder set for {{ formatScheduledTime(reminder.scheduledFor) }}
+          </span>
+        </div>
+        <div v-else class="text-gray-500 dark:text-gray-400">
+          No reminder set for this event
+        </div>
+      </div>
+    </template>
   </div>
 </template>

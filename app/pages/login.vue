@@ -224,7 +224,7 @@ useSeoMeta({
 
 <template>
   <div
-    class="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800"
+    class="min-h-screen bg-gradient-to-br from-teal-50 via-white to-coral-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800"
   >
     <div class="max-w-md mx-auto px-4 py-12">
       <!-- Header -->

@@ -19,12 +19,13 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Get the event and verify organizer
+  // Get the event - all authenticated users can view
   const eventData = await prisma.event.findUnique({
     where: { slug },
     select: {
       id: true,
       organizerId: true,
+      timezone: true,
     },
   });
 
@@ -35,49 +36,55 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  if (eventData.organizerId !== auth.user.id) {
-    throw createError({
-      statusCode: 403,
-      message: 'Only the organizer can view notifications',
-    });
-  }
+  const isOrganizer = eventData.organizerId === auth.user.id;
 
-  // Get all notifications for this event
-  const notifications = await prisma.eventNotification.findMany({
+  // Get the single notification for this event (if exists)
+  const notification = await prisma.eventNotification.findUnique({
     where: { eventId: eventData.id },
     include: {
-      _count: {
-        select: {
-          sentMessages: true,
-        },
-      },
       sentMessages: {
         select: {
+          id: true,
+          recipientName: true,
           status: true,
+          sentAt: true,
         },
+        orderBy: { sentAt: 'asc' },
       },
     },
-    orderBy: { scheduledFor: 'asc' },
   });
 
-  return {
-    notifications: notifications.map((n) => {
-      const sentCount = n.sentMessages.filter((m) => m.status === 'SENT' || m.status === 'DELIVERED').length;
-      const failedCount = n.sentMessages.filter((m) => m.status === 'FAILED').length;
+  if (!notification) {
+    return {
+      reminder: null,
+      isOrganizer,
+    };
+  }
 
-      return {
-        id: n.id,
-        scheduleType: n.scheduleType,
-        scheduledFor: n.scheduledFor.toISOString(),
-        relativeMinutes: n.relativeMinutes,
-        messageTemplate: n.messageTemplate,
-        status: n.status,
-        processedAt: n.processedAt?.toISOString() || null,
-        createdAt: n.createdAt.toISOString(),
-        recipientCount: n._count.sentMessages,
-        sentCount,
-        failedCount,
-      };
-    }),
+  // Build recipients list (only include if notification was processed)
+  const recipients = notification.status === 'COMPLETED' || notification.status === 'PARTIALLY_FAILED'
+    ? notification.sentMessages.map((m) => ({
+        name: m.recipientName || 'Unknown',
+        status: m.status,
+        sentAt: m.sentAt?.toISOString() || null,
+      }))
+    : undefined;
+
+  // Calculate hoursBeforeValue from relativeMinutes
+  const hoursBeforeValue = notification.scheduleType === 'HOURS_BEFORE' && notification.relativeMinutes
+    ? notification.relativeMinutes / 60
+    : undefined;
+
+  return {
+    reminder: {
+      id: notification.id,
+      scheduleType: notification.scheduleType,
+      hoursBeforeValue,
+      scheduledFor: notification.scheduledFor.toISOString(),
+      status: notification.status,
+      processedAt: notification.processedAt?.toISOString() || null,
+      recipients,
+    },
+    isOrganizer,
   };
 });

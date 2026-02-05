@@ -493,19 +493,19 @@ defineExpose({
 
 .scroll-fade-left {
   left: 0;
-  background: linear-gradient(to right, rgb(249 250 251) 0%, transparent 100%);
+  background: linear-gradient(to right, var(--color-gray-50, #f9fafb) 0%, transparent 100%);
 }
 
 .scroll-fade-right {
   right: 0;
-  background: linear-gradient(to left, rgb(249 250 251) 0%, transparent 100%);
+  background: linear-gradient(to left, var(--color-gray-50, #f9fafb) 0%, transparent 100%);
 }
 
 .dark .scroll-fade-left {
-  background: linear-gradient(to right, rgb(3 7 18) 0%, transparent 100%);
+  background: linear-gradient(to right, var(--color-gray-950, #030712) 0%, transparent 100%);
 }
 
 .dark .scroll-fade-right {
-  background: linear-gradient(to left, rgb(3 7 18) 0%, transparent 100%);
+  background: linear-gradient(to left, var(--color-gray-950, #030712) 0%, transparent 100%);
 }
 </style>

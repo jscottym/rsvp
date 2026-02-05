@@ -44,6 +44,19 @@
   --color-cream-800: #846b4e;
   --color-cream-900: #6c5842;
   --color-cream-950: #3a2e21;
+
+  /* Coral - True complement to teal for secondary accents */
+  --color-coral-50: #fff5f5;
+  --color-coral-100: #ffe3e3;
+  --color-coral-200: #ffcccc;
+  --color-coral-300: #ffa8a8;
+  --color-coral-400: #ff8080;
+  --color-coral-500: #ff6b6b;
+  --color-coral-600: #fa5252;
+  --color-coral-700: #e03e3e;
+  --color-coral-800: #c92a2a;
+  --color-coral-900: #a51d1d;
+  --color-coral-950: #5c0a0a;
 }
 
 :root {
@@ -62,6 +75,20 @@
   --color-primary-800: var(--color-teal-800);
   --color-primary-900: var(--color-teal-900);
   --color-primary-950: var(--color-teal-950);
+
+  /* Map secondary color to coral */
+  --ui-secondary: var(--color-coral-500);
+  --color-secondary-50: var(--color-coral-50);
+  --color-secondary-100: var(--color-coral-100);
+  --color-secondary-200: var(--color-coral-200);
+  --color-secondary-300: var(--color-coral-300);
+  --color-secondary-400: var(--color-coral-400);
+  --color-secondary-500: var(--color-coral-500);
+  --color-secondary-600: var(--color-coral-600);
+  --color-secondary-700: var(--color-coral-700);
+  --color-secondary-800: var(--color-coral-800);
+  --color-secondary-900: var(--color-coral-900);
+  --color-secondary-950: var(--color-coral-950);
 }
 
 html {

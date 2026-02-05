@@ -182,7 +182,7 @@ enum JoinRequestStatus {
 
 model EventNotification {
   id              String                   @id @default(cuid())
-  eventId         String
+  eventId         String                   @unique // Only one reminder per event
   event           Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   // Scheduling
@@ -204,14 +204,12 @@ model EventNotification {
   sentMessages    SentNotification[]
 
   @@index([scheduledFor, status])
-  @@index([eventId])
 }
 
 enum NotificationScheduleType {
+  NONE
   DAY_BEFORE
-  MORNING_OF
-  MINUTES_BEFORE
-  SPECIFIC_TIME
+  HOURS_BEFORE
 }
 
 enum NotificationStatus {
@@ -230,6 +228,7 @@ model SentNotification {
 
   phoneNumber      String
   recipientUserId  String?
+  recipientName    String?                 // Store name for display
 
   messageBody      String
   twilioMessageSid String?

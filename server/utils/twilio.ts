@@ -220,6 +220,7 @@ export async function processNotification(
         notificationId: notification.id,
         phoneNumber: recipient.phone,
         recipientUserId: recipient.userId,
+        recipientName: recipient.name,
         messageBody: message,
         status: 'PENDING',
       },
@@ -315,35 +316,27 @@ export async function getPendingNotifications() {
  */
 export function calculateScheduledTime(
   eventDatetime: Date,
-  scheduleType: 'DAY_BEFORE' | 'MORNING_OF' | 'MINUTES_BEFORE' | 'SPECIFIC_TIME',
-  relativeMinutes?: number | null,
-  specificTime?: Date
+  scheduleType: 'NONE' | 'DAY_BEFORE' | 'HOURS_BEFORE',
+  relativeMinutes?: number | null
 ): Date {
   switch (scheduleType) {
+    case 'NONE': {
+      // Return far future date (should never be used for actual scheduling)
+      return new Date('2099-12-31T23:59:59Z');
+    }
     case 'DAY_BEFORE': {
       const dayBefore = new Date(eventDatetime);
       dayBefore.setDate(dayBefore.getDate() - 1);
       dayBefore.setHours(18, 0, 0, 0); // 6 PM day before
       return dayBefore;
     }
-    case 'MORNING_OF': {
-      const morningOf = new Date(eventDatetime);
-      morningOf.setHours(9, 0, 0, 0); // 9 AM event day
-      return morningOf;
-    }
-    case 'MINUTES_BEFORE': {
+    case 'HOURS_BEFORE': {
       if (!relativeMinutes) {
-        throw new Error('relativeMinutes required for MINUTES_BEFORE schedule');
+        throw new Error('relativeMinutes required for HOURS_BEFORE schedule');
       }
       const before = new Date(eventDatetime);
       before.setMinutes(before.getMinutes() - relativeMinutes);
       return before;
-    }
-    case 'SPECIFIC_TIME': {
-      if (!specificTime) {
-        throw new Error('specificTime required for SPECIFIC_TIME schedule');
-      }
-      return specificTime;
     }
     default:
       throw new Error(`Unknown schedule type: ${scheduleType}`);

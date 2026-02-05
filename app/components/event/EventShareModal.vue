@@ -52,6 +52,11 @@ const shareMessage = computed(() => {
 
 const fullMessage = computed(() => `${shareMessage.value}\n${eventUrl.value}`);
 
+const isEventFull = computed(() => {
+  const rsvpCount = props.event.rsvpCount || 0;
+  return rsvpCount >= props.event.maxPlayers;
+});
+
 async function copyLink() {
   try {
     await navigator.clipboard.writeText(eventUrl.value);
@@ -150,12 +155,12 @@ watch(open, (isOpen) => {
           </div>
         </div>
 
-        <!-- Link with Message Card -->
-        <div class="rounded-2xl border-2 border-teal-500 overflow-hidden">
+        <!-- Link with Invite Message Card (only shown when event has spots available) -->
+        <div v-if="!isEventFull" class="rounded-2xl border-2 border-teal-500 overflow-hidden">
           <div class="p-4 bg-teal-50 dark:bg-teal-900/20">
             <div class="flex items-center gap-2 mb-2">
               <UIcon name="i-heroicons-chat-bubble-bottom-center-text" class="w-4 h-4 text-teal-500" />
-              <span class="text-xs font-medium text-teal-600 dark:text-teal-400 uppercase tracking-wide">With message</span>
+              <span class="text-xs font-medium text-teal-600 dark:text-teal-400 uppercase tracking-wide">With Invite Message</span>
             </div>
             <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ fullMessage }}</p>
           </div>
