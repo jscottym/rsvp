@@ -183,7 +183,7 @@ function hasAnyEvents(day: CalendarDay) {
           class="flex-shrink-0 flex flex-col items-center w-10 py-2 rounded-xl transition-all duration-200 snap-start"
           :class="[
             day.isSelected
-              ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30'
+              ? 'bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg shadow-teal-500/30'
               : day.isToday
                 ? 'bg-gray-200 dark:bg-gray-700'
                 : day.isPast
@@ -242,7 +242,7 @@ function hasAnyEvents(day: CalendarDay) {
             <span
               v-if="day.indicators.in > 0"
               class="w-1.5 h-1.5 rounded-full"
-              :class="day.isSelected ? 'bg-white/80' : 'bg-emerald-500'"
+              :class="day.isSelected ? 'bg-white/80' : 'bg-teal-500'"
             ></span>
             <!-- Maybe dot -->
             <span

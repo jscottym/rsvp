@@ -6,6 +6,12 @@ export default defineNuxtConfig({
 
   modules: ['@nuxt/ui', '@pinia/nuxt', 'nuxt-og-image'],
 
+  ui: {
+    theme: {
+      colors: ['primary', 'secondary', 'success', 'info', 'warning', 'error']
+    }
+  },
+
   ogImage: {
     defaults: {
       component: 'Event',
@@ -39,8 +45,11 @@ export default defineNuxtConfig({
     twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER,
     // Cron security
     cronSecret: process.env.CRON_SECRET,
+    // Dev mode auth bypass
+    devUserId: process.env.DEV_FIREBASE_UID,
     // Public keys (exposed to client)
     public: {
+      devUserId: process.env.DEV_FIREBASE_UID,
       firebaseApiKey: process.env.NUXT_PUBLIC_FIREBASE_API_KEY,
       firebaseAuthDomain: process.env.NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
       firebaseProjectId: process.env.NUXT_PUBLIC_FIREBASE_PROJECT_ID,

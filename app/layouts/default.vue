@@ -45,7 +45,7 @@ const userInitials = computed(() => {
   <div>
     <UHeader to="/" :toggle="false">
       <template #title>
-        <span></span>
+        <img src="/rsvp-games-logo.png" alt="RSVP Games" class="h-8" />
       </template>
 
       <template #right>

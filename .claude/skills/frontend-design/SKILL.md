@@ -24,8 +24,8 @@ When working on frontend design for this project, follow these principles:
 - Autofocus on the most important field
 
 ### Gorgeous Visual Design
-- Use gradients for primary actions: `bg-gradient-to-br from-emerald-400 to-emerald-600`
-- Colored shadows: `shadow-emerald-500/30`, `shadow-xl`
+- Use gradients for primary actions: `bg-gradient-to-br from-teal-400 to-teal-600`
+- Colored shadows: `shadow-teal-500/30`, `shadow-xl`
 - Large rounded corners: `rounded-2xl`, `rounded-3xl`
 - Subtle animations: `transition-all duration-200`
 - Tap feedback: `active:scale-95` or `active:scale-[0.98]`
@@ -45,7 +45,7 @@ For selecting from multiple options (dates, times, counts):
       class="flex-shrink-0 py-3 px-4 rounded-xl transition-all duration-200 active:scale-95"
       :class="[
         selected === item.value
-          ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30'
+          ? 'bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg shadow-teal-500/30'
           : 'bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700'
       ]"
     >
@@ -65,8 +65,8 @@ For selecting between 2-4 major options:
     :class="[
       'relative p-5 rounded-2xl border-2 transition-all text-left',
       isSelected
-        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-        : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300'
+        ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+        : 'border-gray-200 dark:border-gray-700 hover:border-teal-300'
     ]"
   >
     <UIcon name="i-heroicons-check-circle" class="w-8 h-8 mb-2" />
@@ -82,7 +82,7 @@ For primary page actions:
   <UButton
     size="xl"
     block
-    class="h-20 flex flex-col items-center justify-center gap-1 text-xl font-bold rounded-2xl shadow-xl shadow-emerald-500/30 bg-gradient-to-r from-emerald-500 to-emerald-600"
+    class="h-20 flex flex-col items-center justify-center gap-1 text-xl font-bold rounded-2xl shadow-xl shadow-teal-500/30 bg-gradient-to-r from-teal-500 to-teal-600"
   >
     <span>Primary Action</span>
     <span class="text-sm font-normal opacity-90">Supporting detail</span>
@@ -93,11 +93,11 @@ For primary page actions:
 ### Avatar Pills
 For displaying people/responses:
 ```vue
-<div class="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-full px-3 py-1">
-  <span class="w-6 h-6 bg-emerald-200 dark:bg-emerald-800 rounded-full flex items-center justify-center text-xs font-medium">
+<div class="flex items-center gap-2 bg-teal-50 dark:bg-teal-900/20 rounded-full px-3 py-1">
+  <span class="w-6 h-6 bg-teal-200 dark:bg-teal-800 rounded-full flex items-center justify-center text-xs font-medium">
     {{ initials }}
   </span>
-  <span class="text-sm text-emerald-700 dark:text-emerald-300">{{ name }}</span>
+  <span class="text-sm text-teal-700 dark:text-teal-300">{{ name }}</span>
 </div>
 ```
 
@@ -105,7 +105,7 @@ For displaying people/responses:
 
 | Purpose | Light Mode | Dark Mode |
 |---------|------------|-----------|
-| Primary/Success | emerald-500/600 | emerald-400/500 |
+| Primary/Success | teal-500/600 | teal-400/500 |
 | Danger/Decline | red-500/600 | red-400/500 |
 | Warning/Maybe | amber-500/600 | amber-400/500 |
 | Info/Conditional | blue-500/600 | blue-400/500 |

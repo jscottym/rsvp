@@ -134,14 +134,14 @@ watch(open, (isOpen) => {
           <div class="flex border-t border-gray-200 dark:border-gray-700">
             <button
               class="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
-              :class="copiedLink ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400'"
+              :class="copiedLink ? 'text-teal-600 dark:text-teal-400' : 'text-gray-600 dark:text-gray-400'"
               @click="copyLink"
             >
               <UIcon :name="copiedLink ? 'i-heroicons-check' : 'i-heroicons-clipboard-document'" class="w-4 h-4" />
               {{ copiedLink ? 'Copied!' : 'Copy' }}
             </button>
             <button
-              class="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-400 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+              class="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-teal-600 dark:text-teal-400 transition-colors hover:bg-teal-50 dark:hover:bg-teal-900/20"
               @click="sendLinkText"
             >
               <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4" />
@@ -151,25 +151,25 @@ watch(open, (isOpen) => {
         </div>
 
         <!-- Link with Message Card -->
-        <div class="rounded-2xl border-2 border-emerald-500 overflow-hidden">
-          <div class="p-4 bg-emerald-50 dark:bg-emerald-900/20">
+        <div class="rounded-2xl border-2 border-teal-500 overflow-hidden">
+          <div class="p-4 bg-teal-50 dark:bg-teal-900/20">
             <div class="flex items-center gap-2 mb-2">
-              <UIcon name="i-heroicons-chat-bubble-bottom-center-text" class="w-4 h-4 text-emerald-500" />
-              <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">With message</span>
+              <UIcon name="i-heroicons-chat-bubble-bottom-center-text" class="w-4 h-4 text-teal-500" />
+              <span class="text-xs font-medium text-teal-600 dark:text-teal-400 uppercase tracking-wide">With message</span>
             </div>
             <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ fullMessage }}</p>
           </div>
-          <div class="flex border-t border-emerald-200 dark:border-emerald-800">
+          <div class="flex border-t border-teal-200 dark:border-teal-800">
             <button
-              class="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/30 border-r border-emerald-200 dark:border-emerald-800"
-              :class="copiedMessage ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400'"
+              class="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors hover:bg-teal-100 dark:hover:bg-teal-900/30 border-r border-teal-200 dark:border-teal-800"
+              :class="copiedMessage ? 'text-teal-600 dark:text-teal-400' : 'text-gray-600 dark:text-gray-400'"
               @click="copyMessage"
             >
               <UIcon :name="copiedMessage ? 'i-heroicons-check' : 'i-heroicons-clipboard-document'" class="w-4 h-4" />
               {{ copiedMessage ? 'Copied!' : 'Copy' }}
             </button>
             <button
-              class="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-400 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+              class="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-teal-600 dark:text-teal-400 transition-colors hover:bg-teal-100 dark:hover:bg-teal-900/30"
               @click="sendMessageText"
             >
               <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4" />

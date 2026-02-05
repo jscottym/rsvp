@@ -8,6 +8,7 @@ export default defineEventHandler(async (event) => {
   // Public routes that don't need auth
   const publicPaths = [
     '/api/auth/firebase-login',
+    '/api/auth/dev-login',
     '/api/events' // GET events by slug is public
   ]
 
@@ -18,6 +19,25 @@ export default defineEventHandler(async (event) => {
 
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice(7)
+
+    // Dev mode: accept "dev-{firebaseUid}" tokens
+    if (token.startsWith('dev-') && import.meta.dev) {
+      const firebaseUid = token.slice(4) // Remove "dev-" prefix
+      const user = await prisma.user.findUnique({
+        where: { firebaseUid }
+      })
+
+      if (user) {
+        event.context.auth = {
+          firebaseUid: user.firebaseUid,
+          phone: user.phone,
+          user
+        }
+        return
+      }
+    }
+
+    // Normal Firebase token verification
     const decodedToken = await verifyFirebaseToken(token)
 
     if (decodedToken) {

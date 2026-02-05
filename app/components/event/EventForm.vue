@@ -24,6 +24,7 @@ const emit = defineEmits<{
 
 // Player count options
 const playerCounts = [
+  { value: 2, label: 'singles' },
   { value: 4, label: 'doubles' },
   { value: 8, label: 'rotate' },
   { value: 12, label: 'party' },
@@ -283,14 +284,14 @@ defineExpose({
               class="flex-shrink-0 flex flex-col items-center justify-center w-16 h-20 rounded-2xl transition-all duration-200 active:scale-95"
               :class="[
                 form.date === day.value
-                  ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30'
+                  ? 'bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg shadow-teal-500/30'
                   : 'bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700',
               ]"
             >
               <span
                 class="text-xs font-medium"
                 :class="
-                  form.date === day.value ? 'text-emerald-100' : 'text-gray-500'
+                  form.date === day.value ? 'text-teal-100' : 'text-gray-500'
                 "
               >
                 {{ day.dayName }}
@@ -308,7 +309,7 @@ defineExpose({
               <span
                 class="text-xs"
                 :class="
-                  form.date === day.value ? 'text-emerald-100' : 'text-gray-500'
+                  form.date === day.value ? 'text-teal-100' : 'text-gray-500'
                 "
               >
                 {{ day.month }}
@@ -335,7 +336,7 @@ defineExpose({
               class="flex-shrink-0 py-3 px-4 rounded-xl text-center transition-all duration-200 active:scale-95"
               :class="[
                 form.startTime === time.value
-                  ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30'
+                  ? 'bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg shadow-teal-500/30'
                   : 'bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700',
               ]"
             >
@@ -368,7 +369,7 @@ defineExpose({
             class="py-3 px-2 rounded-xl text-center transition-all duration-200 active:scale-95"
             :class="[
               form.duration === dur.value
-                ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30'
+                ? 'bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg shadow-teal-500/30'
                 : 'bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700',
             ]"
           >
@@ -392,7 +393,7 @@ defineExpose({
           class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block"
           >Players</label
         >
-        <div class="grid grid-cols-3 gap-3 pb-2">
+        <div class="grid grid-cols-4 gap-2 pb-2">
           <button
             v-for="count in playerCounts"
             :key="count.value"
@@ -400,7 +401,7 @@ defineExpose({
             class="relative py-5 rounded-2xl text-center transition-all duration-200 active:scale-95"
             :class="[
               form.maxPlayers === count.value
-                ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30'
+                ? 'bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg shadow-teal-500/30'
                 : 'bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700',
             ]"
           >
@@ -436,9 +437,9 @@ defineExpose({
           :class="[
             inline
               ? 'h-14 text-lg font-bold rounded-xl'
-              : 'h-20 flex flex-col items-center justify-center gap-1 text-xl font-bold rounded-2xl shadow-xl shadow-emerald-500/30',
+              : 'h-20 flex flex-col items-center justify-center gap-1 text-xl font-bold rounded-2xl shadow-xl shadow-teal-500/30',
           ]"
-          class="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 active:scale-[0.98]"
+          class="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 transition-all duration-200 active:scale-[0.98]"
           @click="handleSubmit"
         >
           <template v-if="inline">

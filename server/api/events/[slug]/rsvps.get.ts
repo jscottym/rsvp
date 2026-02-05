@@ -30,13 +30,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Check if user is organizer
-  if (existingEvent.organizerId !== auth.user.id) {
-    throw createError({
-      statusCode: 403,
-      message: 'Only the organizer can view full RSVP details'
-    })
-  }
+  // Any authenticated user can view RSVP details to message players
 
   // Get all RSVPs with full details
   const rsvps = await prisma.rsvp.findMany({

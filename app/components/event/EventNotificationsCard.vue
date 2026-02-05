@@ -246,7 +246,7 @@ onMounted(() => {
           notification.status === 'PENDING'
             ? 'bg-blue-50 dark:bg-blue-900/20'
             : notification.status === 'COMPLETED'
-              ? 'bg-emerald-50 dark:bg-emerald-900/20'
+              ? 'bg-teal-50 dark:bg-teal-900/20'
               : notification.status === 'CANCELLED'
                 ? 'bg-gray-50 dark:bg-gray-800/50 opacity-60'
                 : 'bg-gray-50 dark:bg-gray-800/50',
@@ -306,7 +306,7 @@ onMounted(() => {
     </p>
 
     <!-- Create Modal -->
-    <CreateNotificationModal
+    <EventCreateNotificationModal
       v-model:open="showCreateModal"
       :event-datetime="eventDatetime"
       :confirmed-count="confirmedCount"

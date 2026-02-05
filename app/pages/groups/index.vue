@@ -273,14 +273,14 @@ useSeoMeta({
 
     <!-- Empty State -->
     <div v-else-if="groups.length === 0 && !showCreateForm" class="text-center py-12">
-      <div class="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-        <UIcon name="i-heroicons-user-group" class="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+      <div class="w-20 h-20 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+        <UIcon name="i-heroicons-user-group" class="w-10 h-10 text-teal-600 dark:text-teal-400" />
       </div>
       <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">No groups yet</h2>
       <p class="text-gray-600 dark:text-gray-400 mb-6">Create a group to save contacts and text them easily!</p>
       <button
         class="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white
-               bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/30
+               bg-gradient-to-r from-teal-500 to-teal-600 shadow-lg shadow-teal-500/30
                transition-all duration-200 active:scale-95"
         @click="showCreateForm = true"
       >
@@ -321,8 +321,8 @@ useSeoMeta({
           <button
             v-if="group.members?.length"
             class="w-full flex items-center justify-center gap-2 py-4
-                   bg-gradient-to-r from-emerald-500 to-emerald-600
-                   rounded-xl shadow-lg shadow-emerald-500/30
+                   bg-gradient-to-r from-teal-500 to-teal-600
+                   rounded-xl shadow-lg shadow-teal-500/30
                    text-white font-semibold
                    transition-all duration-200 active:scale-[0.98]"
             @click="textGroup(group)"
@@ -337,7 +337,7 @@ useSeoMeta({
               <!-- Edit Member Form -->
               <div
                 v-if="editingMemberId === member.id"
-                class="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl space-y-3"
+                class="p-3 bg-teal-50 dark:bg-teal-900/20 rounded-xl space-y-3"
               >
                 <UInput
                   v-model="editMemberName"
@@ -374,9 +374,9 @@ useSeoMeta({
               >
                 <!-- Avatar -->
                 <span
-                  class="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/30
+                  class="w-9 h-9 rounded-full bg-teal-100 dark:bg-teal-900/30
                          flex items-center justify-center text-sm font-medium
-                         text-emerald-700 dark:text-emerald-300 flex-shrink-0"
+                         text-teal-700 dark:text-teal-300 flex-shrink-0"
                 >
                   {{ getInitials(member.name) }}
                 </span>
@@ -421,7 +421,7 @@ useSeoMeta({
           </p>
 
           <!-- Add Member Form -->
-          <div v-if="addingMemberToGroupId === group.id" class="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl space-y-3">
+          <div v-if="addingMemberToGroupId === group.id" class="p-3 bg-teal-50 dark:bg-teal-900/20 rounded-xl space-y-3">
             <UInput
               v-model="newMemberName"
               placeholder="Name"
@@ -451,7 +451,7 @@ useSeoMeta({
           <!-- Add Member Button -->
           <button
             v-else
-            class="w-full py-3 text-emerald-600 dark:text-emerald-400 font-medium hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-colors"
+            class="w-full py-3 text-teal-600 dark:text-teal-400 font-medium hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-xl transition-colors"
             @click="startAddMember(group.id)"
           >
             + Add member
@@ -516,7 +516,7 @@ useSeoMeta({
       <!-- Create Group Inline Form -->
       <div
         v-if="showCreateForm"
-        class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border-2 border-dashed border-emerald-300 dark:border-emerald-700"
+        class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border-2 border-dashed border-teal-300 dark:border-teal-700"
       >
         <UInput
           v-model="newGroupName"
@@ -545,8 +545,8 @@ useSeoMeta({
       <button
         v-else
         class="w-full py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl
-               text-gray-500 hover:text-emerald-600 hover:border-emerald-300
-               dark:hover:text-emerald-400 dark:hover:border-emerald-700
+               text-gray-500 hover:text-teal-600 hover:border-teal-300
+               dark:hover:text-teal-400 dark:hover:border-teal-700
                transition-all duration-200 font-medium"
         @click="showCreateForm = true"
       >

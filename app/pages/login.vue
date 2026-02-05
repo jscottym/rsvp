@@ -224,7 +224,7 @@ useSeoMeta({
 
 <template>
   <div
-    class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800"
+    class="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800"
   >
     <div class="max-w-md mx-auto px-4 py-12">
       <!-- Header -->
@@ -269,14 +269,14 @@ useSeoMeta({
             class="flex items-start gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700 cursor-pointer border-2 transition-all"
             :class="[
               smsConsent
-                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
                 : 'border-gray-200 dark:border-gray-600',
             ]"
           >
             <input
               v-model="smsConsent"
               type="checkbox"
-              class="w-5 h-5 mt-0.5 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 flex-shrink-0"
+              class="w-5 h-5 mt-0.5 rounded border-gray-300 text-teal-500 focus:ring-teal-500 flex-shrink-0"
             />
             <span
               class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
@@ -294,7 +294,7 @@ useSeoMeta({
             block
             label="Retry Verification Setup"
             :loading="recaptchaInitializing"
-            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-teal-500/30 transition-all active:scale-[0.98]"
             @click="initRecaptcha"
           />
           <UButton
@@ -307,7 +307,7 @@ useSeoMeta({
             "
             :loading="loading || recaptchaInitializing"
             :disabled="!isValidPhone || !recaptchaReady || !smsConsent"
-            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-teal-500/30 transition-all active:scale-[0.98]"
             @click="sendCode"
           />
 
@@ -348,7 +348,7 @@ useSeoMeta({
             label="Verify Code"
             :loading="loading"
             :disabled="code.length !== 6"
-            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-teal-500/30 transition-all active:scale-[0.98]"
             @click="verifyCode"
           />
 
@@ -389,7 +389,7 @@ useSeoMeta({
             label="Continue"
             :loading="loading"
             :disabled="!name.trim()"
-            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-emerald-500/30 transition-all active:scale-[0.98]"
+            class="h-14 rounded-xl text-lg font-semibold shadow-lg shadow-teal-500/30 transition-all active:scale-[0.98]"
             @click="completeName"
           />
         </div>

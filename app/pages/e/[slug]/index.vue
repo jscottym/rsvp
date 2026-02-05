@@ -43,7 +43,9 @@ const showDeleteModal = ref(false);
 const showSaveGroupModal = ref(false);
 const showEditWarningModal = ref(false);
 const showShareModal = ref(false);
-const showMessageModal = ref(false);
+const showMessagePopover = ref(false);
+const messageText = ref('');
+const messageIncludeLink = ref(false);
 const saving = ref(false);
 const deleting = ref(false);
 const savingGroup = ref(false);
@@ -210,7 +212,7 @@ const activeRsvpList = computed(() => {
 const activeTabColor = computed(() => {
   switch (activeResponseTab.value) {
     case 'in':
-      return 'emerald';
+      return 'teal';
     case 'out':
       return 'red';
     case 'maybe':
@@ -218,7 +220,7 @@ const activeTabColor = computed(() => {
     case 'waitlist':
       return 'violet';
     default:
-      return 'emerald';
+      return 'teal';
   }
 });
 
@@ -933,7 +935,7 @@ async function textPlayers() {
     }
 
     const message = `Hey! Quick update about ${event.value?.title || 'our game'}...`;
-    const smsUrl = `sms:${confirmedPhones.join(',')}?body=${encodeURIComponent(message)}`;
+    const smsUrl = `sms:${confirmedPhones.join(';')}?body=${encodeURIComponent(message)}`;
     window.open(smsUrl, '_blank');
   } catch (e: any) {
     toast.add({
@@ -987,30 +989,64 @@ async function fetchMessagePhones() {
   }
 }
 
-function getPhonesForCurrentTab(): string[] {
+function getPhonesForCurrentTab(excludeCurrentUser = true): string[] {
   const rsvpList = activeRsvpList.value;
   return rsvpList
+    .filter((r) => !excludeCurrentUser || r.userId !== authStore.user?.id)
     .map((r) => messagePhones.value.get(r.id))
     .filter((phone): phone is string => !!phone);
+}
+
+// Other players on current tab (excluding current user)
+const otherPlayersOnTab = computed(() =>
+  activeRsvpList.value.filter((r) => r.userId !== authStore.user?.id)
+);
+
+const currentTabPhones = computed(() => getPhonesForCurrentTab(true));
+
+const finalMessageText = computed(() => {
+  let text = messageText.value.trim();
+  if (messageIncludeLink.value && text) {
+    text += `\n\n${getEventUrl(true)}`;
+  }
+  return text;
+});
+
+async function openMessagePopover() {
+  loadingMessagePhones.value = true;
+  try {
+    await fetchMessagePhones();
+    messageText.value = '';
+    messageIncludeLink.value = false;
+    showMessagePopover.value = true;
+  } catch (e: any) {
+    toast.add({
+      title: 'Error',
+      description: e.data?.message || 'Failed to get player phones',
+      color: 'error',
+    });
+  } finally {
+    loadingMessagePhones.value = false;
+  }
 }
 
 async function sendQuickMessage() {
   loadingMessagePhones.value = true;
   try {
     await fetchMessagePhones();
-    const phones = getPhonesForCurrentTab();
+    const phones = getPhonesForCurrentTab(true);
 
     if (phones.length === 0) {
       toast.add({
         title: 'No phone numbers',
-        description: 'No players in this list have phone numbers',
+        description: 'No other players in this list have phone numbers',
         color: 'warning',
       });
       return;
     }
 
-    // Open SMS with empty body - user types their message
-    const smsUrl = `sms:${phones.join(',')}`;
+    // Open SMS with empty body
+    const smsUrl = `sms:${phones.join(';')}`;
     window.open(smsUrl);
   } catch (e: any) {
     toast.add({
@@ -1023,23 +1059,38 @@ async function sendQuickMessage() {
   }
 }
 
-async function openCustomizeMessage() {
-  loadingMessagePhones.value = true;
+async function textIndividualPlayer(rsvpId: string) {
   try {
     await fetchMessagePhones();
-    showMessageModal.value = true;
+    const phone = messagePhones.value.get(rsvpId);
+
+    if (!phone) {
+      toast.add({
+        title: 'No phone number',
+        description: 'This player does not have a phone number',
+        color: 'warning',
+      });
+      return;
+    }
+
+    window.open(`sms:${phone}`);
   } catch (e: any) {
     toast.add({
       title: 'Error',
-      description: e.data?.message || 'Failed to get player phones',
+      description: e.data?.message || 'Failed to get player phone',
       color: 'error',
     });
-  } finally {
-    loadingMessagePhones.value = false;
   }
 }
 
-const currentTabPhones = computed(() => getPhonesForCurrentTab());
+function sendMessage() {
+  const phones = currentTabPhones.value;
+  if (!finalMessageText.value || phones.length === 0) return;
+
+  const smsUrl = `sms:${phones.join(';')}?body=${encodeURIComponent(finalMessageText.value)}`;
+  window.open(smsUrl);
+  showMessagePopover.value = false;
+}
 
 const manageMenuItems = computed<DropdownMenuItem[][]>(() => {
   const items: DropdownMenuItem[][] = [
@@ -1454,7 +1505,7 @@ function closeManageGroupsModal() {
                 >
                   <div
                     class="h-full transition-all duration-300"
-                    :class="isFull ? 'bg-amber-500' : 'bg-emerald-500'"
+                    :class="isFull ? 'bg-amber-500' : 'bg-teal-500'"
                     :style="{
                       width: `${Math.min(100, ((event.rsvpCount ?? 0) / event.maxPlayers) * 100)}%`,
                     }"
@@ -1489,20 +1540,20 @@ function closeManageGroupsModal() {
               <!-- Spot opened up banner -->
               <div
                 v-if="spotOpenedUp"
-                class="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 dark:bg-emerald-900/20 mb-3"
+                class="rounded-xl border-2 border-teal-500 bg-teal-50 p-4 dark:bg-teal-900/20 mb-3"
               >
                 <div class="mb-3 flex items-center gap-3">
                   <UIcon
                     name="i-heroicons-sparkles"
-                    class="h-6 w-6 text-emerald-600"
+                    class="h-6 w-6 text-teal-600"
                   />
                   <div class="flex-1">
                     <p
-                      class="font-semibold text-emerald-900 dark:text-emerald-100"
+                      class="font-semibold text-teal-900 dark:text-teal-100"
                     >
                       A spot opened up!
                     </p>
-                    <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                    <p class="text-sm text-teal-700 dark:text-teal-300">
                       Claim it before someone else does
                     </p>
                   </div>
@@ -1542,14 +1593,18 @@ function closeManageGroupsModal() {
                   :class="[
                     'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
                     selectedStatus === 'IN' || isConfirmed
-                      ? 'bg-emerald-100 ring-2 ring-emerald-500 dark:bg-emerald-900/30'
+                      ? 'bg-teal-100 ring-2 ring-teal-500 dark:bg-teal-900/30'
                       : isFull
                         ? selectedStatus === 'WAITLIST'
                           ? 'bg-violet-100 ring-2 ring-violet-500 dark:bg-violet-900/30'
                           : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
                         : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
                   ]"
-                  @click="isFull && !isConfirmed ? handleJoinWaitlist() : selectStatus('IN')"
+                  @click="
+                    isFull && !isConfirmed
+                      ? handleJoinWaitlist()
+                      : selectStatus('IN')
+                  "
                 >
                   <UIcon
                     :name="
@@ -1564,7 +1619,7 @@ function closeManageGroupsModal() {
                     :class="[
                       'h-6 w-6',
                       selectedStatus === 'IN' || isConfirmed
-                        ? 'text-emerald-500'
+                        ? 'text-teal-500'
                         : isFull
                           ? selectedStatus === 'WAITLIST'
                             ? 'text-violet-500'
@@ -1576,7 +1631,7 @@ function closeManageGroupsModal() {
                     :class="[
                       'text-xs font-medium',
                       selectedStatus === 'IN' || isConfirmed
-                        ? 'text-emerald-700 dark:text-emerald-300'
+                        ? 'text-teal-700 dark:text-teal-300'
                         : isFull
                           ? selectedStatus === 'WAITLIST'
                             ? 'text-violet-700 dark:text-violet-300'
@@ -1704,7 +1759,7 @@ function closeManageGroupsModal() {
               </div>
 
               <!-- Streamlined Note Field -->
-              <div v-if="selectedStatus || isConfirmed" class="mt-1">
+              <div v-if="selectedStatus || isConfirmed" class="mt-4">
                 <!-- Editing state -->
                 <div
                   v-if="
@@ -1746,7 +1801,7 @@ function closeManageGroupsModal() {
                       :class="
                         hasUnsavedNote
                           ? 'text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20'
-                          : 'text-emerald-500'
+                          : 'text-teal-500'
                       "
                       @click="saveNote"
                     >
@@ -1803,7 +1858,7 @@ function closeManageGroupsModal() {
                 <button
                   v-else
                   type="button"
-                  class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                  class="inline-flex items-center gap-1.5 text-sm text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                   @click="
                     if (selectedStatus === 'IN_IF') {
                       isEditingInIf = true;
@@ -1849,7 +1904,7 @@ function closeManageGroupsModal() {
                     :class="[
                       'rounded-lg px-3 py-2 transition-all duration-200',
                       activeResponseTab === 'in'
-                        ? 'bg-emerald-50 dark:bg-emerald-900/20'
+                        ? 'bg-teal-50 dark:bg-teal-900/20'
                         : '',
                       activeResponseTab === 'out'
                         ? 'bg-red-50 dark:bg-red-900/20'
@@ -1867,7 +1922,7 @@ function closeManageGroupsModal() {
                         :class="[
                           'flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
                           activeResponseTab === 'in'
-                            ? 'bg-emerald-200 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-300'
+                            ? 'bg-teal-200 text-teal-700 dark:bg-teal-800 dark:text-teal-300'
                             : '',
                           activeResponseTab === 'out'
                             ? 'bg-red-200 text-red-700 dark:bg-red-800 dark:text-red-300'
@@ -1886,7 +1941,7 @@ function closeManageGroupsModal() {
                         :class="[
                           'text-sm flex-1',
                           activeResponseTab === 'in'
-                            ? 'text-emerald-700 dark:text-emerald-300'
+                            ? 'text-teal-700 dark:text-teal-300'
                             : '',
                           activeResponseTab === 'out'
                             ? 'text-red-700 dark:text-red-300'
@@ -1915,25 +1970,46 @@ function closeManageGroupsModal() {
                         variant="subtle"
                         size="xs"
                       />
-                      <!-- Groups button (organizer only) -->
-                      <button
-                        v-if="event.isOrganizer"
-                        class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ml-auto"
-                        title="Manage groups"
-                        @click.stop="openManageGroupsModal(rsvp.id, rsvp.name)"
+                      <!-- Action buttons (any authenticated user) -->
+                      <div
+                        v-if="authStore.isAuthenticated"
+                        class="flex items-center gap-1 ml-auto"
                       >
-                        <UIcon
-                          name="i-heroicons-user-group"
-                          class="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        />
-                      </button>
+                        <!-- Text button (hide for current user) -->
+                        <button
+                          v-if="rsvp.userId !== authStore.user?.id"
+                          class="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          title="Send text message"
+                          @click.stop="textIndividualPlayer(rsvp.id)"
+                        >
+                          <UIcon
+                            name="i-heroicons-chat-bubble-left"
+                            class="w-3.5 h-3.5"
+                          />
+                          <span>Text</span>
+                        </button>
+                        <!-- Groups button -->
+                        <button
+                          class="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          title="Manage groups"
+                          @click.stop="
+                            openManageGroupsModal(rsvp.id, rsvp.name)
+                          "
+                        >
+                          <UIcon
+                            name="i-heroicons-user-group"
+                            class="w-3.5 h-3.5"
+                          />
+                          <span>Groups</span>
+                        </button>
+                      </div>
                     </div>
                     <p
                       v-if="rsvp.comment"
                       :class="[
                         'mt-1 pl-8 text-sm italic',
                         activeResponseTab === 'in'
-                          ? 'text-emerald-600 dark:text-emerald-400'
+                          ? 'text-teal-600 dark:text-teal-400'
                           : '',
                         activeResponseTab === 'out'
                           ? 'text-red-600 dark:text-red-400'
@@ -1952,9 +2028,9 @@ function closeManageGroupsModal() {
                 </TransitionGroup>
               </div>
 
-              <!-- Message Players Button (Organizer only) -->
-              <div v-if="event.isOrganizer" class="mt-4">
-                <UButtonGroup class="w-full">
+              <!-- Message Players Button (Organizer only, when there are OTHER players) -->
+              <div v-if="otherPlayersOnTab.length > 0" class="mt-4">
+                <UFieldGroup class="w-full">
                   <UButton
                     color="neutral"
                     variant="soft"
@@ -1965,19 +2041,69 @@ function closeManageGroupsModal() {
                     :loading="loadingMessagePhones"
                     @click="sendQuickMessage"
                   />
-                  <UDropdownMenu
-                    :items="[
-                      [{ label: 'Customize message...', icon: 'i-heroicons-pencil-square', onSelect: openCustomizeMessage }]
-                    ]"
-                  >
+                  <UPopover v-model:open="showMessagePopover">
                     <UButton
                       color="neutral"
                       variant="soft"
                       icon="i-heroicons-chevron-down"
                       size="lg"
+                      @click="openMessagePopover"
                     />
-                  </UDropdownMenu>
-                </UButtonGroup>
+
+                    <template #content>
+                      <div class="p-4 w-80">
+                        <div class="flex items-center gap-2 mb-3">
+                          <UIcon
+                            name="i-heroicons-chat-bubble-left-ellipsis"
+                            class="w-5 h-5 text-teal-500"
+                          />
+                          <span class="font-medium text-sm">
+                            Message {{ currentTabPhones.length }}
+                            {{
+                              currentTabPhones.length === 1
+                                ? 'player'
+                                : 'players'
+                            }}
+                          </span>
+                        </div>
+
+                        <UTextarea
+                          v-model="messageText"
+                          placeholder="Type your message..."
+                          :rows="3"
+                          autofocus
+                          class="mb-3 w-full"
+                        />
+
+                        <label
+                          class="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 cursor-pointer mb-3"
+                        >
+                          <input
+                            v-model="messageIncludeLink"
+                            type="checkbox"
+                            class="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500"
+                          />
+                          <span
+                            class="text-sm text-gray-600 dark:text-gray-400"
+                          >
+                            Include event link
+                          </span>
+                        </label>
+
+                        <UButton
+                          color="primary"
+                          block
+                          icon="i-heroicons-paper-airplane"
+                          label="Send"
+                          :disabled="
+                            !messageText.trim() || currentTabPhones.length === 0
+                          "
+                          @click="sendMessage"
+                        />
+                      </div>
+                    </template>
+                  </UPopover>
+                </UFieldGroup>
               </div>
             </div>
 
@@ -1994,7 +2120,7 @@ function closeManageGroupsModal() {
                 </h3>
                 <div v-if="isConnected" class="flex items-center gap-1.5">
                   <span
-                    class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"
+                    class="h-2 w-2 animate-pulse rounded-full bg-teal-500"
                   />
                   <span class="text-xs text-gray-400">Live</span>
                 </div>
@@ -2009,7 +2135,7 @@ function closeManageGroupsModal() {
                     <span
                       :class="[
                         'h-1.5 w-1.5 flex-shrink-0 rounded-full',
-                        activity.type === 'RSVP_IN' ? 'bg-emerald-500' : '',
+                        activity.type === 'RSVP_IN' ? 'bg-teal-500' : '',
                         activity.type === 'RSVP_OUT' ? 'bg-red-500' : '',
                         activity.type === 'RSVP_MAYBE' ? 'bg-amber-500' : '',
                         activity.type === 'RSVP_WAITLIST'
@@ -2315,14 +2441,6 @@ function closeManageGroupsModal() {
             }"
           />
 
-          <!-- Message Players Modal -->
-          <EventMessageModal
-            v-if="event"
-            v-model:open="showMessageModal"
-            :event-slug="event.slug"
-            :phones="currentTabPhones"
-          />
-
           <!-- Manage Groups Modal -->
           <UModal
             v-model:open="showManageGroupsModal"
@@ -2331,11 +2449,11 @@ function closeManageGroupsModal() {
             <template #header>
               <div class="flex items-center gap-3">
                 <div
-                  class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center"
+                  class="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center"
                 >
                   <UIcon
                     name="i-heroicons-user-group"
-                    class="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                    class="w-5 h-5 text-teal-600 dark:text-teal-400"
                   />
                 </div>
                 <div>
@@ -2417,7 +2535,7 @@ function closeManageGroupsModal() {
                   class="w-full flex items-center gap-3 p-3 rounded-xl transition-all"
                   :class="[
                     selectedGroupIds.includes(group.id)
-                      ? 'bg-emerald-50 dark:bg-emerald-900/20 ring-2 ring-emerald-500'
+                      ? 'bg-teal-50 dark:bg-teal-900/20 ring-2 ring-teal-500'
                       : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800',
                   ]"
                   @click="toggleGroup(group.id)"
@@ -2426,7 +2544,7 @@ function closeManageGroupsModal() {
                     class="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors"
                     :class="[
                       selectedGroupIds.includes(group.id)
-                        ? 'bg-emerald-500 border-emerald-500'
+                        ? 'bg-teal-500 border-teal-500'
                         : 'border-gray-300 dark:border-gray-600',
                     ]"
                   >

@@ -1,6 +1,51 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/*
+ * RSVP Games Color Palette
+ * Based on logo: teal brushstroke, cream text, gold outlines
+ */
+@theme static {
+  /* Teal - Primary brand color from logo brushstroke */
+  --color-teal-50: #f0fdfa;
+  --color-teal-100: #ccfbf1;
+  --color-teal-200: #99f6e4;
+  --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0d9488;
+  --color-teal-700: #0f766e;
+  --color-teal-800: #115e59;
+  --color-teal-900: #134e4a;
+  --color-teal-950: #042f2e;
+
+  /* Sand - Secondary warm accent from logo gold outlines */
+  --color-sand-50: #fdfcfb;
+  --color-sand-100: #f9f5f0;
+  --color-sand-200: #f3e8db;
+  --color-sand-300: #e9d5be;
+  --color-sand-400: #ddb990;
+  --color-sand-500: #d4a574;
+  --color-sand-600: #c48b56;
+  --color-sand-700: #a37046;
+  --color-sand-800: #855b3d;
+  --color-sand-900: #6d4b35;
+  --color-sand-950: #3a261a;
+
+  /* Cream - Warm neutral inspired by logo text fill */
+  --color-cream-50: #fefdfb;
+  --color-cream-100: #fdfaf5;
+  --color-cream-200: #faf5eb;
+  --color-cream-300: #f5ede0;
+  --color-cream-400: #ede0cd;
+  --color-cream-500: #e0cdb3;
+  --color-cream-600: #c4a883;
+  --color-cream-700: #a18561;
+  --color-cream-800: #846b4e;
+  --color-cream-900: #6c5842;
+  --color-cream-950: #3a2e21;
+}
+
 :root {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }

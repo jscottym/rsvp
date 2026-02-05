@@ -38,18 +38,26 @@ This app is **mobile-first** and must be:
 
 ### UI Patterns Used
 - Tap-based selection (horizontal scroll pickers for dates, times, player counts)
-- Large colorful buttons with gradients (`bg-gradient-to-br from-emerald-400 to-emerald-600`)
+- Large colorful buttons with gradients (`bg-gradient-to-br from-teal-400 to-teal-600`)
 - Cards with rounded corners (`rounded-2xl`, `rounded-3xl`)
-- Shadows with color (`shadow-emerald-500/30`)
+- Shadows with color (`shadow-teal-500/30`)
 - Fixed bottom CTA buttons for important actions
 - Pill-shaped tags for displaying RSVPs
 
-### Color System
-- **Primary (Emerald)**: Actions, "In" responses, CTAs
-- **Red**: "Out" responses, destructive actions
-- **Amber/Yellow**: "Maybe" responses, warnings
-- **Blue**: "In If..." conditional responses
-- **Gray**: Neutral, secondary text
+### Color System (Based on Logo)
+Custom color palette defined in `app/assets/css/main.css` and configured in `app.config.ts`:
+
+| Color | Tailwind | Semantic | Usage |
+|-------|----------|----------|-------|
+| **Teal** | `teal-*` | `primary` | Actions, "In" responses, CTAs, brand color |
+| **Sand** | `sand-*` | `secondary` | Warm accents, complementary UI |
+| **Cream** | `cream-*` | - | Warm neutral backgrounds |
+| **Red** | `red-*` | `error` | "Out" responses, destructive actions |
+| **Amber** | `amber-*` | `warning` | "Maybe" responses, warnings |
+| **Blue** | `blue-*` | `info` | "In If..." conditional responses |
+| **Slate** | `slate-*` | `neutral` | Text, borders, backgrounds |
+
+**Prefer semantic colors** (`color="primary"`) in Nuxt UI components over raw Tailwind classes.
 
 ## Tech Stack
 
@@ -185,7 +193,7 @@ Used for dates, times, durations. See `EventForm.vue`:
     v-for="item in items"
     @click="selected = item.value"
     class="flex-shrink-0 ... rounded-2xl transition-all duration-200 active:scale-95"
-    :class="[selected === item.value ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-white']"
+    :class="[selected === item.value ? 'bg-gradient-to-br from-teal-400 to-teal-600' : 'bg-white']"
   >
 ```
 
@@ -196,8 +204,8 @@ Used for RSVP responses. See `pages/e/[slug]/index.vue`:
   class="relative p-5 rounded-2xl border-2 transition-all text-left"
   :class="[
     selectedStatus === 'IN'
-      ? 'border-emerald-500 bg-emerald-50'
-      : 'border-gray-200 hover:border-emerald-300'
+      ? 'border-teal-500 bg-teal-50'
+      : 'border-gray-200 hover:border-teal-300'
   ]"
 >
 ```

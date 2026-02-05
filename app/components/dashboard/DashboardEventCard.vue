@@ -116,8 +116,8 @@ function getAttendeeStyle(status: RsvpStatus) {
   const config = RSVP_STATUS_CONFIG[status];
   const styles: Record<RsvpStatus, { avatarBg: string; avatarText: string }> = {
     IN: {
-      avatarBg: 'bg-emerald-200 dark:bg-emerald-800',
-      avatarText: 'text-emerald-700 dark:text-emerald-300',
+      avatarBg: 'bg-teal-200 dark:bg-teal-800',
+      avatarText: 'text-teal-700 dark:text-teal-300',
     },
     WAITLIST: {
       avatarBg: 'bg-violet-200 dark:bg-violet-800',
@@ -175,7 +175,7 @@ const spotOpenedUp = computed(() => {
     <!-- Spot opened up banner -->
     <div
       v-if="spotOpenedUp"
-      class="bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 flex items-center justify-between"
+      class="bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-2 flex items-center justify-between"
     >
       <div class="flex items-center gap-2">
         <UIcon name="i-heroicons-sparkles" class="w-4 h-4 text-white" />

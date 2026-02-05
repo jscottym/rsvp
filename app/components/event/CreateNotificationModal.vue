@@ -254,7 +254,7 @@ watch(open, (isOpen) => {
             class="p-4 rounded-xl"
             :class="[
               isScheduleValid
-                ? 'bg-emerald-50 dark:bg-emerald-900/20'
+                ? 'bg-teal-50 dark:bg-teal-900/20'
                 : 'bg-red-50 dark:bg-red-900/20',
             ]"
           >
@@ -264,7 +264,7 @@ watch(open, (isOpen) => {
                 class="w-5 h-5"
                 :class="[
                   isScheduleValid
-                    ? 'text-emerald-500'
+                    ? 'text-teal-500'
                     : 'text-red-500',
                 ]"
               />
@@ -272,14 +272,14 @@ watch(open, (isOpen) => {
                 class="font-medium"
                 :class="[
                   isScheduleValid
-                    ? 'text-emerald-700 dark:text-emerald-300'
+                    ? 'text-teal-700 dark:text-teal-300'
                     : 'text-red-700 dark:text-red-300',
                 ]"
               >
                 {{ isScheduleValid ? formatScheduledTime(scheduledTime) : scheduleError }}
               </span>
             </div>
-            <p v-if="isScheduleValid" class="text-sm text-emerald-600 dark:text-emerald-400 mt-1 ml-7">
+            <p v-if="isScheduleValid" class="text-sm text-teal-600 dark:text-teal-400 mt-1 ml-7">
               Will send to {{ confirmedCount }} {{ confirmedCount === 1 ? 'player' : 'players' }}
             </p>
           </div>

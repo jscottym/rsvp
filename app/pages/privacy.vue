@@ -122,7 +122,7 @@ useSeoMeta({
         <div class="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700">
           <NuxtLink
             to="/"
-            class="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:underline"
+            class="inline-flex items-center gap-2 text-teal-600 dark:text-teal-400 hover:underline"
           >
             <UIcon name="i-heroicons-arrow-left" class="w-4 h-4" />
             Back to home

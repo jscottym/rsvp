@@ -124,7 +124,7 @@ useSeoMeta({
 
     <NuxtLink
       to="/create"
-      class="group relative px-16 py-8 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-3xl shadow-2xl shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-105 transition-all duration-300 active:scale-100"
+      class="group relative px-16 py-8 bg-gradient-to-br from-teal-400 to-teal-600 rounded-3xl shadow-2xl shadow-teal-500/30 hover:shadow-teal-500/50 hover:scale-105 transition-all duration-300 active:scale-100"
     >
       <span class="text-3xl sm:text-4xl font-bold text-white">
         Create Game
@@ -142,7 +142,7 @@ useSeoMeta({
       />
     </div>
 
-    <div v-else class="pb-24 pt-4">
+    <div v-else class="pb-18 pt-4">
       <div class="max-w-2xl mx-auto px-4">
         <!-- Events list -->
         <div class="space-y-3">
@@ -155,10 +155,16 @@ useSeoMeta({
             <h2
               class="text-lg font-semibold text-gray-900 dark:text-white mb-2"
             >
-              No events yet
+              {{
+                pastEvents.length > 0 ? 'No Events Scheduled' : 'No events yet'
+              }}
             </h2>
             <p class="text-gray-600 dark:text-gray-400 mb-6">
-              Create your first event or RSVP to one!
+              {{
+                pastEvents.length > 0
+                  ? 'Create a new event'
+                  : 'Create your first event or RSVP to one!'
+              }}
             </p>
           </div>
 
@@ -177,7 +183,7 @@ useSeoMeta({
         <div class="mt-6">
           <NuxtLink
             to="/create"
-            class="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all duration-200 active:scale-[0.98]"
+            class="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-br from-teal-400 to-teal-600 rounded-2xl shadow-lg shadow-teal-500/30 hover:shadow-teal-500/50 transition-all duration-200 active:scale-[0.98]"
           >
             <UIcon name="i-heroicons-plus" class="w-6 h-6 text-white" />
             <span class="text-lg font-bold text-white">Create Event</span>

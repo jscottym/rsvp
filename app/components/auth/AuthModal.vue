@@ -248,14 +248,14 @@ function completeAuth() {
             class="flex items-start gap-3 p-4 mt-4 rounded-xl bg-gray-50 dark:bg-gray-800 cursor-pointer border-2 transition-all"
             :class="[
               smsConsent
-                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
                 : 'border-gray-200 dark:border-gray-700',
             ]"
           >
             <input
               v-model="smsConsent"
               type="checkbox"
-              class="w-5 h-5 mt-0.5 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 flex-shrink-0"
+              class="w-5 h-5 mt-0.5 rounded border-gray-300 text-teal-500 focus:ring-teal-500 flex-shrink-0"
             />
             <span
               class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"

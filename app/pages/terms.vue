@@ -101,7 +101,7 @@ useSeoMeta({
           <h2>8. Privacy</h2>
           <p>
             Your use of the Service is also governed by our
-            <NuxtLink to="/privacy" class="text-emerald-600 dark:text-emerald-400 hover:underline">Privacy Policy</NuxtLink>,
+            <NuxtLink to="/privacy" class="text-teal-600 dark:text-teal-400 hover:underline">Privacy Policy</NuxtLink>,
             which describes how we collect, use, and protect your information.
           </p>
 
@@ -170,7 +170,7 @@ useSeoMeta({
         <div class="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700">
           <NuxtLink
             to="/"
-            class="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:underline"
+            class="inline-flex items-center gap-2 text-teal-600 dark:text-teal-400 hover:underline"
           >
             <UIcon name="i-heroicons-arrow-left" class="w-4 h-4" />
             Back to home
