@@ -23,6 +23,7 @@ export default defineNuxtConfig({
     '/create': { ssr: false },
     '/groups/**': { ssr: false },
     '/e/**': { ssr: true },
+    '/invite/**': { ssr: false },
   },
 
   nitro: {

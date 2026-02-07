@@ -10,6 +10,7 @@ interface Group {
   id: string
   name: string
   description?: string
+  type?: 'STANDARD' | 'MY_PEOPLE'
   visibility: 'PRIVATE' | 'PUBLIC'
   owner?: {
     id: string
@@ -49,6 +50,18 @@ export const useGroupsStore = defineStore('groups', {
     pendingRequests: [],
     loading: false
   }),
+
+  getters: {
+    myPeopleGroup(): Group | undefined {
+      return this.groups.find(g => g.type === 'MY_PEOPLE')
+    },
+    sortedGroups(): Group[] {
+      // My People first, then the rest by creation order
+      const myPeople = this.groups.filter(g => g.type === 'MY_PEOPLE')
+      const standard = this.groups.filter(g => g.type !== 'MY_PEOPLE')
+      return [...myPeople, ...standard]
+    }
+  },
 
   actions: {
     async fetchMyGroups() {

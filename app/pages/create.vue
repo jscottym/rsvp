@@ -12,7 +12,7 @@ const eventFormRef = ref<InstanceType<typeof EventForm> | null>(null);
 const pendingFormData = ref<EventFormData | null>(null);
 
 // Persist location in localStorage
-const savedLocation = useLocalStorage('pickup-sports-last-location', '');
+const savedLocation = useLocalStorage('rsvp-games-last-location', '');
 
 // Initial form data with saved location
 const initialFormData = computed(() => ({

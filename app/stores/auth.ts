@@ -15,7 +15,7 @@ interface AuthState {
 }
 
 // Cache user in localStorage for instant loading
-const cachedUser = useLocalStorage<User | null>('pickup-sports-user', null, {
+const cachedUser = useLocalStorage<User | null>('rsvp-games-user', null, {
   serializer: {
     read: (v) => v ? JSON.parse(v) : null,
     write: (v) => JSON.stringify(v)

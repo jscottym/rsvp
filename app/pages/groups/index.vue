@@ -7,7 +7,7 @@ const groupsStore = useGroupsStore()
 const toast = useToast()
 
 const loading = ref(true)
-const groups = computed(() => groupsStore.groups)
+const groups = computed(() => groupsStore.sortedGroups)
 
 // Expanded group tracking
 const expandedGroupId = ref<string | null>(null)
@@ -36,6 +36,14 @@ const savingGroup = ref(false)
 
 // Delete confirmation
 const deletingGroupId = ref<string | null>(null)
+
+// Invite link state
+const personalInviteCode = ref<string | null>(null)
+const loadingInviteCode = ref(false)
+const copiedPersonal = ref(false)
+const groupInviteCodes = ref<Map<string, string>>(new Map())
+const loadingGroupInvite = ref<string | null>(null)
+const copiedGroupId = ref<string | null>(null)
 
 onMounted(async () => {
   try {
@@ -66,6 +74,22 @@ function getInitials(name: string): string {
     .slice(0, 2)
 }
 
+function formatPhoneInput(input: string): string {
+  let digits = input.replace(/\D/g, '')
+  if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1)
+  if (digits.length === 0) return ''
+  if (digits.length <= 3) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
+}
+
+function toE164(input: string): string {
+  let digits = input.replace(/\D/g, '')
+  if (digits.length === 11 && digits[0] === '1') return `+${digits}`
+  if (digits.length === 10) return `+1${digits}`
+  return input
+}
+
 function formatPhone(phone: string): string {
   // Format US phone numbers nicely
   const digits = phone.replace(/\D/g, '')
@@ -76,6 +100,21 @@ function formatPhone(phone: string): string {
     return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
   }
   return phone
+}
+
+function handleNameClick(event: Event, group: any) {
+  if (expandedGroupId.value === group.id && group.type !== 'MY_PEOPLE') {
+    event.stopPropagation()
+    startEditGroup(group)
+  }
+}
+
+function handleNewMemberPhone(value: string) {
+  newMemberPhone.value = formatPhoneInput(value)
+}
+
+function handleEditMemberPhone(value: string) {
+  editMemberPhone.value = formatPhoneInput(value)
 }
 
 function textGroup(group: any) {
@@ -132,7 +171,7 @@ async function addMember(groupId: string) {
   if (!newMemberName.value.trim() || !newMemberPhone.value.trim()) return
   addingMember.value = true
   try {
-    await groupsStore.addMember(groupId, newMemberName.value.trim(), newMemberPhone.value.trim())
+    await groupsStore.addMember(groupId, newMemberName.value.trim(), toE164(newMemberPhone.value))
     toast.add({
       title: 'Member added!',
       color: 'success'
@@ -155,7 +194,7 @@ async function addMember(groupId: string) {
 function startEditMember(member: any) {
   editingMemberId.value = member.id
   editMemberName.value = member.name
-  editMemberPhone.value = member.phone
+  editMemberPhone.value = formatPhoneInput(member.phone)
   addingMemberToGroupId.value = null
 }
 
@@ -169,7 +208,7 @@ async function saveMember(groupId: string, memberId: string) {
   if (!editMemberName.value.trim() || !editMemberPhone.value.trim()) return
   savingMember.value = true
   try {
-    await groupsStore.updateMember(groupId, memberId, editMemberName.value.trim(), editMemberPhone.value.trim())
+    await groupsStore.updateMember(groupId, memberId, editMemberName.value.trim(), toE164(editMemberPhone.value))
     toast.add({
       title: 'Member updated!',
       color: 'success'
@@ -256,8 +295,102 @@ async function deleteGroup(groupId: string) {
   }
 }
 
+// Invite link functions
+async function fetchPersonalInviteCode() {
+  if (personalInviteCode.value) return
+  loadingInviteCode.value = true
+  try {
+    const authStore = useAuthStore()
+    const token = await authStore.getIdToken()
+    const data = await $fetch<{ inviteCode: string }>('/api/invite/my-code', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
+    personalInviteCode.value = data.inviteCode
+  } catch {
+    toast.add({ title: 'Error', description: 'Failed to get invite link', color: 'error' })
+  } finally {
+    loadingInviteCode.value = false
+  }
+}
+
+function getPersonalInviteUrl() {
+  if (!personalInviteCode.value) return ''
+  return `${window.location.origin}/invite/u/${personalInviteCode.value}`
+}
+
+async function copyPersonalLink() {
+  const url = getPersonalInviteUrl()
+  if (!url) return
+  try {
+    await navigator.clipboard.writeText(url)
+    copiedPersonal.value = true
+    setTimeout(() => { copiedPersonal.value = false }, 2000)
+  } catch {
+    toast.add({ title: 'Error', description: 'Failed to copy', color: 'error' })
+  }
+}
+
+async function sharePersonalLink() {
+  const url = getPersonalInviteUrl()
+  if (!url) return
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Add me on RSVP', url })
+    } catch {
+      // User cancelled share
+    }
+  } else {
+    await copyPersonalLink()
+  }
+}
+
+async function fetchGroupInviteCode(groupId: string) {
+  if (groupInviteCodes.value.has(groupId)) return
+  loadingGroupInvite.value = groupId
+  try {
+    const authStore = useAuthStore()
+    const token = await authStore.getIdToken()
+    const data = await $fetch<{ inviteCode: string }>(`/api/invite/group-code/${groupId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
+    groupInviteCodes.value.set(groupId, data.inviteCode)
+  } catch {
+    toast.add({ title: 'Error', description: 'Failed to get invite link', color: 'error' })
+  } finally {
+    loadingGroupInvite.value = null
+  }
+}
+
+async function shareGroupLink(groupId: string) {
+  await fetchGroupInviteCode(groupId)
+  const code = groupInviteCodes.value.get(groupId)
+  if (!code) return
+
+  const url = `${window.location.origin}/invite/g/${code}`
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Join my group on RSVP', url })
+    } catch {
+      // User cancelled
+    }
+  } else {
+    try {
+      await navigator.clipboard.writeText(url)
+      copiedGroupId.value = groupId
+      setTimeout(() => { copiedGroupId.value = null }, 2000)
+    } catch {
+      toast.add({ title: 'Error', description: 'Failed to copy', color: 'error' })
+    }
+  }
+}
+
+// Fetch personal invite code on mount
+onMounted(async () => {
+  fetchPersonalInviteCode()
+})
+
 useSeoMeta({
-  title: 'My Groups - Pickup Sports'
+  title: 'My Groups - RSVP'
 })
 </script>
 
@@ -265,6 +398,44 @@ useSeoMeta({
   <div class="max-w-2xl mx-auto px-4 py-6 pb-24">
     <!-- Header -->
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">My Groups</h1>
+
+    <!-- Personal Invite Link Card -->
+    <div
+      v-if="!loading && personalInviteCode"
+      class="mb-6 p-4 bg-gradient-to-r from-teal-50 to-teal-100/50 dark:from-teal-900/20 dark:to-teal-800/10
+             rounded-2xl border border-teal-200/50 dark:border-teal-800/50"
+    >
+      <div class="flex items-start gap-3">
+        <span class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-teal-500/20">
+          <UIcon name="i-heroicons-link" class="w-5 h-5 text-white" />
+        </span>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-gray-900 dark:text-white text-sm">Your invite link</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Share to let people add you as a contact</p>
+          <div class="flex gap-2 mt-3">
+            <button
+              class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
+                     bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                     text-gray-700 dark:text-gray-300
+                     transition-all duration-200 active:scale-95"
+              @click="copyPersonalLink"
+            >
+              <UIcon :name="copiedPersonal ? 'i-heroicons-check' : 'i-heroicons-clipboard'" class="w-4 h-4" />
+              {{ copiedPersonal ? 'Copied!' : 'Copy' }}
+            </button>
+            <button
+              class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
+                     bg-teal-500 text-white shadow-sm
+                     transition-all duration-200 active:scale-95"
+              @click="sharePersonalLink"
+            >
+              <UIcon name="i-heroicons-share" class="w-4 h-4" />
+              Share
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-12">
@@ -295,41 +466,112 @@ useSeoMeta({
       <div
         v-for="group in groups"
         :key="group.id"
-        class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden"
+        class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
       >
         <!-- Group Header (always visible) -->
-        <button
-          class="w-full p-4 text-left transition-all duration-200 active:scale-[0.99]"
+        <div
+          class="w-full p-4 text-left transition-all duration-200 active:scale-[0.99] cursor-pointer"
           @click="toggleGroup(group.id)"
         >
           <div class="flex items-center justify-between">
-            <div>
-              <h3 class="font-semibold text-gray-900 dark:text-white">{{ group.name }}</h3>
-              <p class="text-sm text-gray-500">{{ group.memberCount || 0 }} {{ group.memberCount === 1 ? 'member' : 'members' }}</p>
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <span
+                v-if="group.type === 'MY_PEOPLE'"
+                class="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center flex-shrink-0"
+              >
+                <UIcon name="i-heroicons-heart" class="w-4 h-4 text-white" />
+              </span>
+              <div class="flex-1 min-w-0">
+                <!-- Inline group name editing -->
+                <div v-if="editingGroupId === group.id" class="flex items-center gap-2" @click.stop>
+                  <input
+                    v-model="editGroupName"
+                    class="font-semibold text-gray-900 dark:text-white bg-transparent border-b-2 border-teal-500 outline-none py-0.5 w-full"
+                    @keyup.enter="saveGroupName(group.id)"
+                    @keydown.escape="cancelEditGroup"
+                    autofocus
+                  />
+                  <button
+                    v-if="savingGroup"
+                    class="flex-shrink-0"
+                  >
+                    <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin text-teal-500" />
+                  </button>
+                  <button
+                    v-else
+                    class="flex-shrink-0 text-teal-500 active:scale-95"
+                    @click="saveGroupName(group.id)"
+                  >
+                    <UIcon name="i-heroicons-check" class="w-5 h-5" />
+                  </button>
+                  <button
+                    class="flex-shrink-0 text-gray-400 active:scale-95"
+                    @click="cancelEditGroup"
+                  >
+                    <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+                  </button>
+                </div>
+                <!-- Normal display -->
+                <h3
+                  v-else
+                  class="font-semibold text-gray-900 dark:text-white truncate"
+                  :class="{ 'hover:text-teal-600 dark:hover:text-teal-400': expandedGroupId === group.id && group.type !== 'MY_PEOPLE' }"
+                  @click="handleNameClick($event, group)"
+                >{{ group.name }}</h3>
+                <p class="text-sm text-gray-500">{{ group.memberCount || 0 }} {{ group.memberCount === 1 ? 'contact' : 'contacts' }}</p>
+              </div>
             </div>
             <UIcon
               name="i-heroicons-chevron-down"
-              class="w-5 h-5 text-gray-400 transition-transform duration-200"
+              class="w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0"
               :class="{ 'rotate-180': expandedGroupId === group.id }"
             />
           </div>
-        </button>
+        </div>
 
         <!-- Expanded Content -->
         <div v-if="expandedGroupId === group.id" class="px-4 pb-4 space-y-4">
-          <!-- Text Group Button -->
-          <button
-            v-if="group.members?.length"
-            class="w-full flex items-center justify-center gap-2 py-4
-                   bg-gradient-to-r from-teal-500 to-teal-600
-                   rounded-xl shadow-lg shadow-teal-500/30
-                   text-white font-semibold
-                   transition-all duration-200 active:scale-[0.98]"
-            @click="textGroup(group)"
-          >
-            <UIcon name="i-heroicons-chat-bubble-left-ellipsis" class="w-5 h-5" />
-            Text Group
-          </button>
+          <!-- Action Buttons -->
+          <div class="flex gap-2">
+            <button
+              v-if="group.members?.length"
+              class="flex-1 flex items-center justify-center gap-2 py-4
+                     bg-gradient-to-r from-teal-500 to-teal-600
+                     rounded-xl shadow-lg shadow-teal-500/30
+                     text-white font-semibold
+                     transition-all duration-200 active:scale-[0.98]"
+              @click="textGroup(group)"
+            >
+              <UIcon name="i-heroicons-chat-bubble-left-ellipsis" class="w-5 h-5" />
+              Text Group
+            </button>
+            <button
+              v-if="group.type !== 'MY_PEOPLE'"
+              class="flex items-center justify-center gap-2 px-4 py-4
+                     bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600
+                     rounded-xl text-gray-700 dark:text-gray-300 font-semibold
+                     transition-all duration-200 active:scale-[0.98]"
+              :class="{ 'flex-1': !group.members?.length }"
+              @click="shareGroupLink(group.id)"
+            >
+              <UIcon
+                v-if="loadingGroupInvite === group.id"
+                name="i-heroicons-arrow-path"
+                class="w-5 h-5 animate-spin"
+              />
+              <UIcon
+                v-else-if="copiedGroupId === group.id"
+                name="i-heroicons-check"
+                class="w-5 h-5 text-teal-500"
+              />
+              <UIcon
+                v-else
+                name="i-heroicons-link"
+                class="w-5 h-5"
+              />
+              {{ copiedGroupId === group.id ? 'Copied!' : 'Invite Link' }}
+            </button>
+          </div>
 
           <!-- Members List -->
           <div v-if="group.members?.length" class="space-y-2">
@@ -343,19 +585,21 @@ useSeoMeta({
                   v-model="editMemberName"
                   placeholder="Name"
                   size="lg"
+                  class="w-full"
                   autofocus
                 />
                 <UInput
-                  v-model="editMemberPhone"
-                  placeholder="Phone"
+                  :model-value="editMemberPhone"
+                  placeholder="(555) 123-4567"
                   size="lg"
                   type="tel"
+                  class="w-full"
+                  @update:model-value="handleEditMemberPhone"
                 />
                 <div class="flex gap-2">
                   <UButton color="neutral" variant="ghost" @click="cancelEditMember">Cancel</UButton>
                   <UButton
                     color="primary"
-                    class="flex-1"
                     :loading="savingMember"
                     :disabled="!editMemberName.trim() || !editMemberPhone.trim()"
                     @click="saveMember(group.id, member.id)"
@@ -369,7 +613,7 @@ useSeoMeta({
               <div
                 v-else
                 class="flex items-center gap-3 py-3 px-3
-                       bg-gray-50 dark:bg-gray-800/50 rounded-xl
+                       bg-gray-50 dark:bg-gray-700/50 rounded-xl
                        group"
               >
                 <!-- Avatar -->
@@ -426,19 +670,21 @@ useSeoMeta({
               v-model="newMemberName"
               placeholder="Name"
               size="lg"
+              class="w-full"
               autofocus
             />
             <UInput
-              v-model="newMemberPhone"
-              placeholder="Phone"
+              :model-value="newMemberPhone"
+              placeholder="(555) 123-4567"
               size="lg"
               type="tel"
+              class="w-full"
+              @update:model-value="handleNewMemberPhone"
             />
             <div class="flex gap-2">
               <UButton color="neutral" variant="ghost" @click="cancelAddMember">Cancel</UButton>
               <UButton
                 color="primary"
-                class="flex-1"
                 :loading="addingMember"
                 :disabled="!newMemberName.trim() || !newMemberPhone.trim()"
                 @click="addMember(group.id)"
@@ -457,32 +703,10 @@ useSeoMeta({
             + Add member
           </button>
 
-          <!-- Group Actions Divider -->
-          <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-            <!-- Edit Group Name -->
-            <div v-if="editingGroupId === group.id" class="space-y-3">
-              <UInput
-                v-model="editGroupName"
-                placeholder="Group name"
-                size="lg"
-                autofocus
-              />
-              <div class="flex gap-2">
-                <UButton color="neutral" variant="ghost" @click="cancelEditGroup">Cancel</UButton>
-                <UButton
-                  color="primary"
-                  class="flex-1"
-                  :loading="savingGroup"
-                  :disabled="!editGroupName.trim()"
-                  @click="saveGroupName(group.id)"
-                >
-                  Save
-                </UButton>
-              </div>
-            </div>
-
+          <!-- Group Actions Divider (hidden for My People) -->
+          <div v-if="group.type !== 'MY_PEOPLE'" class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
             <!-- Delete Confirmation -->
-            <div v-else-if="deletingGroupId === group.id" class="space-y-3">
+            <div v-if="deletingGroupId === group.id" class="space-y-3">
               <p class="text-center text-gray-600 dark:text-gray-400">
                 Delete <strong>{{ group.name }}</strong>? This cannot be undone.
               </p>
@@ -494,14 +718,8 @@ useSeoMeta({
               </div>
             </div>
 
-            <!-- Group Action Buttons -->
-            <div v-else class="flex gap-4 text-sm">
-              <button
-                class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                @click="startEditGroup(group)"
-              >
-                Edit group name
-              </button>
+            <!-- Delete Button -->
+            <div v-else class="text-sm">
               <button
                 class="text-red-500 hover:text-red-600 transition-colors"
                 @click="deletingGroupId = group.id"

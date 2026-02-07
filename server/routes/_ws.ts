@@ -1,5 +1,5 @@
 import { defineWebSocketHandler } from 'h3'
-import { addPeerToEvent, removePeerFromAllEvents } from '../utils/broadcast'
+import { addPeerToEvent, removePeerFromAllEvents, addPeerToUser, removePeerFromAllUsers } from '../utils/broadcast'
 
 interface SubscribeMessage {
   type: 'subscribe'
@@ -13,11 +13,16 @@ interface SubscribeDashboardMessage {
   token?: string
 }
 
+interface SubscribeUserMessage {
+  type: 'subscribe_user'
+  userId: string
+}
+
 interface PingMessage {
   type: 'ping'
 }
 
-type ClientMessage = SubscribeMessage | SubscribeDashboardMessage | PingMessage
+type ClientMessage = SubscribeMessage | SubscribeDashboardMessage | SubscribeUserMessage | PingMessage
 
 export default defineWebSocketHandler({
   open(peer) {
@@ -72,6 +77,23 @@ export default defineWebSocketHandler({
           break
         }
 
+        case 'subscribe_user': {
+          if (!data.userId) {
+            peer.send(JSON.stringify({ type: 'error', message: 'userId is required' }))
+            return
+          }
+
+          addPeerToUser(data.userId, peer)
+
+          peer.send(JSON.stringify({
+            type: 'user_subscribed',
+            userId: data.userId
+          }))
+
+          console.log(`[WebSocket] Peer ${peer.id} subscribed to user:${data.userId}`)
+          break
+        }
+
         case 'ping': {
           peer.send(JSON.stringify({ type: 'pong' }))
           break
@@ -90,10 +112,12 @@ export default defineWebSocketHandler({
   close(peer) {
     console.log('[WebSocket] Connection closed:', peer.id)
     removePeerFromAllEvents(peer)
+    removePeerFromAllUsers(peer)
   },
 
   error(peer, error) {
     console.error('[WebSocket] Error:', peer.id, error)
     removePeerFromAllEvents(peer)
+    removePeerFromAllUsers(peer)
   }
 })

@@ -75,6 +75,7 @@ export default defineEventHandler(async (event) => {
       id: group.id,
       name: group.name,
       description: group.description,
+      type: group.type,
       visibility: group.visibility,
       owner: group.owner,
       isOwner,

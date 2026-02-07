@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
       id: g.id,
       name: g.name,
       description: g.description,
+      type: g.type,
       visibility: g.visibility,
       memberCount: g._count.members,
       members: g.members,

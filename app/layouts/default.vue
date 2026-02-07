@@ -5,6 +5,20 @@ const authStore = useAuthStore()
 const showAuthModal = ref(false)
 const route = useRoute()
 
+// Real-time notifications for invite acceptances
+useUserWebSocket()
+
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+  return phone
+}
+
 // User dropdown menu items
 const userMenuItems = computed<DropdownMenuItem[][]>(() => [
   [
@@ -14,7 +28,7 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [
       type: 'label'
     },
     {
-      label: authStore.currentUser?.phone || '',
+      label: formatPhone(authStore.currentUser?.phone || ''),
       icon: 'i-heroicons-phone',
       type: 'label',
       disabled: true

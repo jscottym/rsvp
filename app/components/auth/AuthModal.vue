@@ -33,7 +33,7 @@ const recaptchaInitializing = ref(false);
 const recaptchaFailed = ref(false);
 
 const step = ref<'phone' | 'code' | 'name'>('phone');
-const phoneStorage = useLocalStorage('pickup-sports-last-phone', '');
+const phoneStorage = useLocalStorage('rsvp-games-last-phone', '');
 
 function formatPhoneInput(input: string): string {
   const digits = input.replace(/\D/g, '');

@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   // Verify user owns the group
   const group = await prisma.group.findUnique({
     where: { id: groupId },
-    select: { ownerId: true }
+    select: { ownerId: true, type: true }
   })
 
   if (!group) {
@@ -34,6 +34,13 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 403,
       message: 'Only the group owner can delete the group'
+    })
+  }
+
+  if (group.type === 'MY_PEOPLE') {
+    throw createError({
+      statusCode: 403,
+      message: 'The My People group cannot be deleted'
     })
   }
 

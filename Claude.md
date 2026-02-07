@@ -1,4 +1,4 @@
-# Pickup Sports RSVP Application
+# RSVP Games Application
 
 ## Quick Start for Claude Agents
 
@@ -75,7 +75,7 @@ Custom color palette defined in `app/assets/css/main.css` and configured in `app
 ## Project Structure
 
 ```
-pickup-sports/
+rsvp-games/
 ├── app/                      # Frontend (Vue 3 / Nuxt 4)
 │   ├── assets/css/          # Global styles
 │   ├── components/

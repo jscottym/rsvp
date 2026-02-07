@@ -1,7 +1,7 @@
 <script setup lang="ts">
 useSeoMeta({
-  title: 'Terms of Service - Pickup Sports',
-  description: 'Terms of service for Pickup Sports RSVP application',
+  title: 'Terms of Service - RSVP',
+  description: 'Terms of service for RSVP application',
 });
 </script>
 
@@ -19,13 +19,13 @@ useSeoMeta({
         <div class="prose prose-gray dark:prose-invert max-w-none">
           <h2>1. Acceptance of Terms</h2>
           <p>
-            By creating an account or using Pickup Sports ("the Service"), you agree to be bound by these
+            By creating an account or using RSVP ("the Service"), you agree to be bound by these
             Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.
           </p>
 
           <h2>2. Description of Service</h2>
           <p>
-            Pickup Sports is a platform that helps people organize and join recreational sports games.
+            RSVP is a platform that helps people organize and join recreational sports games.
             The Service allows users to:
           </p>
           <ul>
@@ -49,7 +49,7 @@ useSeoMeta({
 
           <h2>4. SMS Consent and Messaging</h2>
           <p>
-            By creating an account and providing SMS consent, you agree to receive text messages from Pickup Sports
+            By creating an account and providing SMS consent, you agree to receive text messages from RSVP
             related to the Service. These include:
           </p>
           <ul>
@@ -77,13 +77,13 @@ useSeoMeta({
 
           <h2>6. Event Participation</h2>
           <p>
-            Pickup Sports facilitates coordination between players but does not organize, supervise, or
+            RSVP facilitates coordination between players but does not organize, supervise, or
             control the actual sports events. You acknowledge that:
           </p>
           <ul>
             <li>Participation in sports activities involves inherent risks of injury</li>
             <li>You are responsible for assessing your own fitness and ability to participate</li>
-            <li>Game organizers and other participants are not employees or agents of Pickup Sports</li>
+            <li>Game organizers and other participants are not employees or agents of RSVP</li>
             <li>You should verify event details directly with the organizer</li>
           </ul>
 
@@ -94,7 +94,7 @@ useSeoMeta({
             content in connection with the Service.
           </p>
           <p>
-            The Pickup Sports name, logo, and Service features are our intellectual property and may not
+            The RSVP name, logo, and Service features are our intellectual property and may not
             be used without permission.
           </p>
 
@@ -122,7 +122,7 @@ useSeoMeta({
 
           <h2>10. Limitation of Liability</h2>
           <p>
-            TO THE MAXIMUM EXTENT PERMITTED BY LAW, PICKUP SPORTS SHALL NOT BE LIABLE FOR ANY
+            TO THE MAXIMUM EXTENT PERMITTED BY LAW, RSVP SHALL NOT BE LIABLE FOR ANY
             INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING FROM YOUR
             USE OF THE SERVICE.
           </p>
@@ -133,7 +133,7 @@ useSeoMeta({
 
           <h2>11. Indemnification</h2>
           <p>
-            You agree to indemnify and hold harmless Pickup Sports from any claims, damages, or expenses
+            You agree to indemnify and hold harmless RSVP from any claims, damages, or expenses
             arising from your use of the Service, your violation of these Terms, or your violation of
             any rights of another person.
           </p>
@@ -163,7 +163,7 @@ useSeoMeta({
             For questions about these Terms, please contact us at:
           </p>
           <p>
-            <strong>Email:</strong> legal@pickupsports.app
+            <strong>Email:</strong> legal@rsvp.games
           </p>
         </div>
 

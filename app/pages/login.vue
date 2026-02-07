@@ -33,7 +33,7 @@ function formatPhoneInput(input: string): string {
 
 // Initialize phone empty for SSR, load from localStorage on client
 const phone = ref('');
-const phoneStorage = useLocalStorage('pickup-sports-last-phone', '');
+const phoneStorage = useLocalStorage('rsvp-games-last-phone', '');
 const codeParts = ref<any[]>([]);
 const code = computed(() => codeParts.value.join(''));
 const pinInputRef = ref<HTMLElement | null>(null);
@@ -217,7 +217,7 @@ function completeAuth() {
 }
 
 useSeoMeta({
-  title: 'Sign In - Pickup Sports',
+  title: 'Sign In - RSVP',
   description: 'Sign up to get notified about games in your area',
 });
 </script>

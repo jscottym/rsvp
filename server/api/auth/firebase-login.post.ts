@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { verifyFirebaseToken } from '../../utils/firebase-admin'
 import prisma from '../../utils/db'
+import { getOrCreateMyPeopleGroup } from '../../utils/my-people'
 
 const loginSchema = z.object({
   idToken: z.string().min(1),
@@ -64,6 +65,9 @@ export default defineEventHandler(async (event) => {
         smsConsentDate: smsConsent ? new Date() : null
       }
     })
+
+    // Auto-create My People group for new users
+    await getOrCreateMyPeopleGroup(user.id)
   } else if (name && name !== user.name) {
     // Update name if provided and different
     user = await prisma.user.update({

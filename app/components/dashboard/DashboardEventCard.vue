@@ -194,7 +194,7 @@ const spotOpenedUp = computed(() => {
     <div class="flex-1 p-4 min-w-0">
       <!-- Top row: Date/Time and Status (icon on right) -->
       <div class="flex items-center justify-between gap-3 mb-2">
-        <div class="flex items-center gap-3 text-sm">
+        <div class="flex items-center gap-3 text-base">
           <span class="font-semibold text-gray-900 dark:text-white">
             {{ formatRelativeDay(event.datetime) }}
           </span>
@@ -205,20 +205,13 @@ const spotOpenedUp = computed(() => {
         </div>
         <div class="flex flex-col items-end gap-0.5">
           <div v-if="statusConfig.iconSolid" class="flex items-center gap-1.5">
-            <span :class="['text-xs font-medium', statusConfig.textColor]">
+            <span :class="['text-sm font-medium', statusConfig.textColor]">
               {{ statusConfig.label }}
             </span>
             <UIcon
               :name="statusConfig.iconSolid"
-              :class="['w-4 h-4', statusConfig.iconColor]"
+              :class="['w-5 h-5', statusConfig.iconColor]"
             />
-          </div>
-          <div
-            v-if="event.isOrganizer"
-            class="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400"
-          >
-            <span>Organizer</span>
-            <UIcon name="i-heroicons-star-solid" class="w-3 h-3" />
           </div>
         </div>
       </div>
@@ -227,9 +220,9 @@ const spotOpenedUp = computed(() => {
       <div class="flex items-center gap-2 mb-3">
         <UIcon
           name="i-heroicons-map-pin"
-          class="w-4 h-4 text-gray-400 shrink-0"
+          class="w-5 h-5 text-gray-400 shrink-0"
         />
-        <span class="text-sm text-gray-700 dark:text-gray-300 truncate">{{
+        <span class="text-base text-gray-700 dark:text-gray-300 truncate">{{
           event.location
         }}</span>
       </div>
@@ -246,10 +239,10 @@ const spotOpenedUp = computed(() => {
             :key="attendee.id"
             class="flex flex-col justify-centergap-0.5 pr-2"
           >
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-1.5">
               <span
                 :class="[
-                  'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold',
+                  'w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold',
                   getAttendeeStyle(attendee.status).avatarBg,
                   getAttendeeStyle(attendee.status).avatarText,
                 ]"
@@ -257,16 +250,15 @@ const spotOpenedUp = computed(() => {
                 {{ getInitial(attendee.name) }}
               </span>
               <span
-                :class="['text-xs', getAttendeeStyle(attendee.status).nameText]"
+                :class="['text-sm', getAttendeeStyle(attendee.status).nameText]"
               >
                 {{ getFirstName(attendee.name) }}
               </span>
-            </div>
-            <div
-              v-if="attendee.userId === event.organizer.id"
-              class="text-[10px] font-medium text-teal-600 dark:text-teal-400 text-center"
-            >
-              Organizer
+              <UIcon
+                v-if="attendee.userId === event.organizer.id"
+                name="i-heroicons-star-solid"
+                class="w-3.5 h-3.5 text-amber-500"
+              />
             </div>
           </div>
           <span v-if="remainingCount > 0" class="text-xs text-gray-400 ml-1">
@@ -277,10 +269,10 @@ const spotOpenedUp = computed(() => {
 
         <!-- Player count -->
         <div class="shrink-0">
-          <span class="text-lg font-bold text-teal-500">{{
+          <span class="text-xl font-bold text-teal-500">{{
             event.rsvpCount
           }}</span>
-          <span class="text-xs text-gray-400">/{{ event.maxPlayers }}</span>
+          <span class="text-sm text-gray-400">/{{ event.maxPlayers }}</span>
         </div>
       </div>
     </div>

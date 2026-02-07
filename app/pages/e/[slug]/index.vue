@@ -43,6 +43,7 @@ const showDeleteModal = ref(false);
 const showSaveGroupModal = ref(false);
 const showEditWarningModal = ref(false);
 const showShareModal = ref(false);
+const showRespondentGrid = ref(false);
 const showMessagePopover = ref(false);
 const messageText = ref('');
 const messageIncludeLink = ref(false);
@@ -551,7 +552,7 @@ async function handleDropOut(sendNotification: boolean) {
     });
 
     if (smsUrl) {
-      window.open(smsUrl, '_blank');
+      window.location.href = smsUrl;
     }
 
     showDropOutModal.value = false;
@@ -877,10 +878,40 @@ async function copyLink() {
   }
 }
 
+function formatPhone(phone: string): string {
+  // Prepend +1 if not already prefixed with +
+  return phone.startsWith('+') ? phone : `+1${phone}`;
+}
+
+function buildSmsUrl(phones: string[], body?: string): string {
+  const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+  const formatted = phones.map(formatPhone);
+  const recipients = formatted.join(',');
+  const encodedBody = body ? encodeURIComponent(body) : '';
+
+  let url: string;
+
+  if (isApple && recipients) {
+    // Apple Messages requires sms://open?addresses= format for multiple recipients
+    url = encodedBody
+      ? `sms://open?addresses=${recipients}&body=${encodedBody}`
+      : `sms://open?addresses=${recipients}`;
+  } else if (!recipients) {
+    url = encodedBody ? `sms:?body=${encodedBody}` : 'sms:';
+  } else {
+    url = encodedBody
+      ? `sms:${recipients}?body=${encodedBody}`
+      : `sms:${recipients}`;
+  }
+
+  console.log('[SMS]', { isApple, rawPhones: phones, formatted, recipients, body, url });
+  return url;
+}
+
 function shareViaSms() {
   const message = generateShareMessage();
   const text = `${message}\n${eventUrl.value}`;
-  window.open(`sms:?body=${encodeURIComponent(text)}`);
+  window.location.href = buildSmsUrl([], text);
 }
 
 function shareViaEmail() {
@@ -937,8 +968,7 @@ async function textPlayers() {
     }
 
     const message = `Hey! Quick update about ${event.value?.title || 'our game'}...`;
-    const smsUrl = `sms:${confirmedPhones.join(';')}?body=${encodeURIComponent(message)}`;
-    window.open(smsUrl, '_blank');
+    window.location.href = buildSmsUrl(confirmedPhones, message);
   } catch (e: any) {
     toast.add({
       title: 'Error',
@@ -953,7 +983,7 @@ async function notifyWaitlist() {
   try {
     const data = await eventsStore.getWaitlistNotifyData(slug.value);
     if (data.phones.length > 0) {
-      window.open(data.smsUrl, '_blank');
+      window.location.href = data.smsUrl;
     } else {
       toast.add({
         title: 'No one on waitlist',
@@ -1014,6 +1044,20 @@ const finalMessageText = computed(() => {
   return text;
 });
 
+const messageSmsHref = computed(() => {
+  const phones = currentTabPhones.value;
+  if (phones.length === 0) return '';
+  return finalMessageText.value
+    ? buildSmsUrl(phones, finalMessageText.value)
+    : buildSmsUrl(phones);
+});
+
+const quickMessageSmsHref = computed(() => {
+  const phones = currentTabPhones.value;
+  if (phones.length === 0) return '';
+  return buildSmsUrl(phones);
+});
+
 async function openMessagePopover() {
   loadingMessagePhones.value = true;
   try {
@@ -1037,6 +1081,7 @@ async function sendQuickMessage() {
   try {
     await fetchMessagePhones();
     const phones = getPhonesForCurrentTab(true);
+    console.log('[Quick Message] phones:', phones);
 
     if (phones.length === 0) {
       toast.add({
@@ -1047,9 +1092,9 @@ async function sendQuickMessage() {
       return;
     }
 
-    // Open SMS with empty body
-    const smsUrl = `sms:${phones.join(';')}`;
-    window.open(smsUrl);
+    const url = buildSmsUrl(phones);
+    console.log('[Quick Message] navigating to:', url);
+    window.location.href = url;
   } catch (e: any) {
     toast.add({
       title: 'Error',
@@ -1075,7 +1120,7 @@ async function textIndividualPlayer(rsvpId: string) {
       return;
     }
 
-    window.open(`sms:${phone}`);
+    window.location.href = buildSmsUrl([phone]);
   } catch (e: any) {
     toast.add({
       title: 'Error',
@@ -1086,11 +1131,7 @@ async function textIndividualPlayer(rsvpId: string) {
 }
 
 function sendMessage() {
-  const phones = currentTabPhones.value;
-  if (!finalMessageText.value || phones.length === 0) return;
-
-  const smsUrl = `sms:${phones.join(';')}?body=${encodeURIComponent(finalMessageText.value)}`;
-  window.open(smsUrl);
+  console.log('[Send Message] href:', messageSmsHref.value);
   showMessagePopover.value = false;
 }
 
@@ -1119,13 +1160,20 @@ const manageMenuItems = computed<DropdownMenuItem[][]>(() => {
     });
   }
 
-  // Add save to group and delete in separate groups
+  // Add save to group, manage respondents, and delete in separate groups
   items.push([
     {
       label: 'Save to group',
       icon: 'i-heroicons-user-group',
       onSelect: () => {
         showSaveGroupModal.value = true;
+      },
+    },
+    {
+      label: 'Manage respondents',
+      icon: 'i-heroicons-table-cells',
+      onSelect: () => {
+        showRespondentGrid.value = true;
       },
     },
   ]);
@@ -1965,12 +2013,10 @@ function closeManageGroupsModal() {
                         variant="subtle"
                         size="xs"
                       />
-                      <UBadge
+                      <UIcon
                         v-if="rsvp.userId === event.organizer?.id"
-                        label="Organizer"
-                        color="primary"
-                        variant="subtle"
-                        size="xs"
+                        name="i-heroicons-star-solid"
+                        class="w-3.5 h-3.5 text-amber-500"
                       />
                       <!-- Action buttons (any authenticated user) -->
                       <div
@@ -2049,6 +2095,7 @@ function closeManageGroupsModal() {
                       variant="soft"
                       icon="i-heroicons-chevron-down"
                       size="lg"
+                      class="border-l border-gray-300 dark:border-gray-600"
                       @click="openMessagePopover"
                     />
 
@@ -2092,16 +2139,22 @@ function closeManageGroupsModal() {
                           </span>
                         </label>
 
-                        <UButton
-                          color="primary"
-                          block
-                          icon="i-heroicons-paper-airplane"
-                          label="Send"
-                          :disabled="
-                            !messageText.trim() || currentTabPhones.length === 0
-                          "
+                        <a
+                          v-if="messageText.trim() && messageSmsHref"
+                          :href="messageSmsHref"
+                          class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-linear-to-br from-teal-400 to-teal-600 text-white font-medium text-sm shadow-md active:scale-95 transition-all duration-200"
                           @click="sendMessage"
-                        />
+                        >
+                          <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4" />
+                          Send via SMS
+                        </a>
+                        <div
+                          v-else
+                          class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-medium text-sm cursor-not-allowed"
+                        >
+                          <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4" />
+                          Send via SMS
+                        </div>
                       </div>
                     </template>
                   </UPopover>
@@ -2590,6 +2643,13 @@ function closeManageGroupsModal() {
               </div>
             </template>
           </UModal>
+
+          <!-- Respondent Grid Slideover -->
+          <EventRespondentGrid
+            v-if="event"
+            v-model:open="showRespondentGrid"
+            :slug="event.slug"
+          />
         </div>
       </div>
     </template>

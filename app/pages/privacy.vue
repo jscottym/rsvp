@@ -1,7 +1,7 @@
 <script setup lang="ts">
 useSeoMeta({
-  title: 'Privacy Policy - Pickup Sports',
-  description: 'Privacy policy for Pickup Sports RSVP application',
+  title: 'Privacy Policy - RSVP',
+  description: 'Privacy policy for RSVP application',
 });
 </script>
 
@@ -19,7 +19,7 @@ useSeoMeta({
         <div class="prose prose-gray dark:prose-invert max-w-none">
           <h2>1. Information We Collect</h2>
           <p>
-            Pickup Sports ("we," "our," or "us") collects the following information when you use our service:
+            RSVP ("we," "our," or "us") collects the following information when you use our service:
           </p>
           <ul>
             <li><strong>Phone Number:</strong> Required for account creation and SMS notifications</li>
@@ -39,7 +39,7 @@ useSeoMeta({
 
           <h2>3. SMS Communications</h2>
           <p>
-            By creating an account and providing consent, you agree to receive SMS messages from Pickup Sports. These messages may include:
+            By creating an account and providing consent, you agree to receive SMS messages from RSVP. These messages may include:
           </p>
           <ul>
             <li>Game invitation notifications</li>
@@ -100,7 +100,7 @@ useSeoMeta({
 
           <h2>9. Children's Privacy</h2>
           <p>
-            Pickup Sports is not intended for users under 13 years of age. We do not knowingly collect information
+            RSVP is not intended for users under 13 years of age. We do not knowingly collect information
             from children under 13.
           </p>
 
@@ -115,7 +115,7 @@ useSeoMeta({
             If you have questions about this privacy policy or want to exercise your rights, please contact us at:
           </p>
           <p>
-            <strong>Email:</strong> privacy@pickupsports.app
+            <strong>Email:</strong> privacy@rsvp.games
           </p>
         </div>
 
