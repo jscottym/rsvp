@@ -117,14 +117,16 @@ function handleEditMemberPhone(value: string) {
   editMemberPhone.value = formatPhoneInput(value)
 }
 
+const { buildSmsUrl } = useSms()
+
 function textGroup(group: any) {
   if (!group.members?.length) return
-  const phones = group.members.map((m: any) => m.phone).join(',')
-  window.location.href = `sms:${phones}`
+  const phones = group.members.map((m: any) => m.phone)
+  window.location.href = buildSmsUrl(phones)
 }
 
 function textMember(phone: string) {
-  window.location.href = `sms:${phone}`
+  window.location.href = buildSmsUrl([phone])
 }
 
 // Create group
@@ -135,10 +137,6 @@ async function createGroup() {
     await groupsStore.createGroup({
       name: newGroupName.value.trim(),
       visibility: 'PRIVATE'
-    })
-    toast.add({
-      title: 'Group created!',
-      color: 'success'
     })
     newGroupName.value = ''
     showCreateForm.value = false
@@ -172,10 +170,6 @@ async function addMember(groupId: string) {
   addingMember.value = true
   try {
     await groupsStore.addMember(groupId, newMemberName.value.trim(), toE164(newMemberPhone.value))
-    toast.add({
-      title: 'Member added!',
-      color: 'success'
-    })
     cancelAddMember()
     // Refresh group to get updated members
     await groupsStore.fetchMyGroups()
@@ -209,10 +203,6 @@ async function saveMember(groupId: string, memberId: string) {
   savingMember.value = true
   try {
     await groupsStore.updateMember(groupId, memberId, editMemberName.value.trim(), toE164(editMemberPhone.value))
-    toast.add({
-      title: 'Member updated!',
-      color: 'success'
-    })
     cancelEditMember()
     await groupsStore.fetchMyGroups()
   } catch (e: any) {
@@ -230,10 +220,6 @@ async function saveMember(groupId: string, memberId: string) {
 async function removeMember(groupId: string, memberId: string) {
   try {
     await groupsStore.removeMember(groupId, memberId)
-    toast.add({
-      title: 'Member removed',
-      color: 'success'
-    })
     await groupsStore.fetchMyGroups()
   } catch (e: any) {
     toast.add({
@@ -260,10 +246,6 @@ async function saveGroupName(groupId: string) {
   savingGroup.value = true
   try {
     await groupsStore.updateGroup(groupId, { name: editGroupName.value.trim() })
-    toast.add({
-      title: 'Group updated!',
-      color: 'success'
-    })
     cancelEditGroup()
   } catch (e: any) {
     toast.add({
@@ -280,10 +262,6 @@ async function saveGroupName(groupId: string) {
 async function deleteGroup(groupId: string) {
   try {
     await groupsStore.deleteGroup(groupId)
-    toast.add({
-      title: 'Group deleted',
-      color: 'success'
-    })
     expandedGroupId.value = null
     deletingGroupId.value = null
   } catch (e: any) {

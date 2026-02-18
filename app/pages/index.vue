@@ -61,12 +61,6 @@ async function handleClaimSpot(slug: string) {
 
     // Refresh dashboard to get updated data
     await eventsStore.fetchDashboardEvents();
-
-    toast.add({
-      title: "You're in!",
-      description: 'Spot claimed successfully',
-      color: 'success',
-    });
   } catch (error: any) {
     toast.add({
       title: 'Could not claim spot',
@@ -114,22 +108,81 @@ useSeoMeta({
   <!-- Landing page for unauthenticated users -->
   <div
     v-if="!authStore.isAuthenticated"
-    class="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center py-12"
+    class="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-6 py-16"
   >
-    <p
-      class="text-center text-lg text-gray-600 dark:text-gray-400 max-w-md mb-12"
-    >
-      Create events people can RSVP to, or RSVP to events others created.
-    </p>
+    <div class="max-w-md mx-auto flex flex-col items-center gap-8">
+      <h1
+        class="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white text-center"
+      >
+        Organize pickup games in seconds
+      </h1>
 
-    <NuxtLink
-      to="/create"
-      class="group relative px-16 py-8 bg-gradient-to-br from-teal-400 to-teal-600 rounded-3xl shadow-2xl shadow-teal-500/30 hover:shadow-teal-500/50 hover:scale-105 transition-all duration-300 active:scale-100"
-    >
-      <span class="text-3xl sm:text-4xl font-bold text-white">
-        Create Game
-      </span>
-    </NuxtLink>
+      <div class="flex flex-col gap-6 w-full">
+        <div class="flex items-start gap-4">
+          <div
+            class="flex-shrink-0 w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center"
+          >
+            <UIcon
+              name="i-heroicons-plus-circle"
+              class="w-5 h-5 text-teal-600 dark:text-teal-400"
+            />
+          </div>
+          <div>
+            <p class="font-semibold text-gray-900 dark:text-white">
+              Create a game
+            </p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              Set date, time &amp; location
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-4">
+          <div
+            class="flex-shrink-0 w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center"
+          >
+            <UIcon
+              name="i-heroicons-share"
+              class="w-5 h-5 text-teal-600 dark:text-teal-400"
+            />
+          </div>
+          <div>
+            <p class="font-semibold text-gray-900 dark:text-white">
+              Share with friends
+            </p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              Send an invite link to your group
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-4">
+          <div
+            class="flex-shrink-0 w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center"
+          >
+            <UIcon
+              name="i-heroicons-check-badge"
+              class="w-5 h-5 text-teal-600 dark:text-teal-400"
+            />
+          </div>
+          <div>
+            <p class="font-semibold text-gray-900 dark:text-white">Play!</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              See who's in and show up ready
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <NuxtLink
+        to="/create"
+        class="group relative px-16 py-8 bg-gradient-to-br from-teal-400 to-teal-600 rounded-3xl shadow-2xl shadow-teal-500/30 hover:shadow-teal-500/50 hover:scale-105 transition-all duration-300 active:scale-100"
+      >
+        <span class="text-3xl sm:text-4xl font-bold text-white">
+          Create Game
+        </span>
+      </NuxtLink>
+    </div>
   </div>
 
   <!-- Dashboard for authenticated users -->
@@ -185,7 +238,7 @@ useSeoMeta({
             to="/create"
             class="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-br from-teal-400 to-teal-600 rounded-2xl shadow-lg shadow-teal-500/30 hover:shadow-teal-500/50 transition-all duration-200 active:scale-[0.98]"
           >
-            <UIcon name="i-heroicons-plus" class="w-6 h-6 text-white" />
+            <UIcon name="i-heroicons-plus-circle" class="w-6 h-6 text-white" />
             <span class="text-lg font-bold text-white">Create Event</span>
           </NuxtLink>
         </div>

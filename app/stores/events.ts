@@ -1,33 +1,5 @@
 import { defineStore } from 'pinia';
 
-function formatPhone(phone: string): string {
-  return phone.startsWith('+') ? phone : `+1${phone}`;
-}
-
-function buildSmsUrl(phones: string[], body?: string): string {
-  const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
-  const formatted = phones.map(formatPhone);
-  const recipients = formatted.join(',');
-  const encodedBody = body ? encodeURIComponent(body) : '';
-
-  let url: string;
-
-  if (isApple && recipients) {
-    url = encodedBody
-      ? `sms://open?addresses=${recipients}&body=${encodedBody}`
-      : `sms://open?addresses=${recipients}`;
-  } else if (!recipients) {
-    url = encodedBody ? `sms:?body=${encodedBody}` : 'sms:';
-  } else {
-    url = encodedBody
-      ? `sms:${recipients}?body=${encodedBody}`
-      : `sms:${recipients}`;
-  }
-
-  console.log('[SMS]', { isApple, rawPhones: phones, formatted, recipients, body, url });
-  return url;
-}
-
 type RsvpStatus = 'IN' | 'OUT' | 'MAYBE' | 'IN_IF' | 'WAITLIST';
 
 interface EventRsvp {
@@ -378,7 +350,7 @@ export const useEventsStore = defineStore('events', {
         const eventUrl = `${baseUrl}/e/${response.event.slug}`;
         const message = `A spot just opened up for ${response.event.title} on ${dayStr}!\n\nClaim it here: ${eventUrl}`;
 
-        const smsUrl = buildSmsUrl(response.phones, message);
+        const smsUrl = useSms().buildSmsUrl(response.phones, message);
 
         return {
           phones: response.phones,
@@ -449,7 +421,7 @@ export const useEventsStore = defineStore('events', {
           }
         }
 
-        const smsUrl = buildSmsUrl(response.phones, message);
+        const smsUrl = useSms().buildSmsUrl(response.phones, message);
 
         return {
           phones: response.phones,

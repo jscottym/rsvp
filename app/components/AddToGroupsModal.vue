@@ -66,11 +66,6 @@ async function save() {
       props.acceptorPhone,
       [...selectedGroupIds.value]
     )
-    toast.add({
-      title: 'Groups updated!',
-      description: `${props.acceptorName} has been added to your groups`,
-      color: 'success'
-    })
     isOpen.value = false
   } catch {
     toast.add({
@@ -88,11 +83,6 @@ function skip() {
     const groupNames = groupsStore.sortedGroups
       .filter(g => props.addedGroupIds.includes(g.id))
       .map(g => g.name)
-    toast.add({
-      title: `${props.acceptorName} joined!`,
-      description: `Added to ${groupNames.join(' & ')}`,
-      color: 'success'
-    })
   }
   isOpen.value = false
 }

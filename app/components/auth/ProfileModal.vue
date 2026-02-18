@@ -42,10 +42,6 @@ async function saveProfile() {
     })
 
     if (result.success) {
-      toast.add({
-        title: 'Profile updated',
-        color: 'success'
-      })
       isOpen.value = false
     } else {
       toast.add({
@@ -62,10 +58,6 @@ async function saveProfile() {
 async function handleSignOut() {
   await authStore.logout()
   isOpen.value = false
-  toast.add({
-    title: 'Signed out',
-    color: 'neutral'
-  })
 }
 </script>
 

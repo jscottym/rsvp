@@ -4,8 +4,6 @@ import { useLocalStorage } from '@vueuse/core';
 const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
-const toast = useToast();
-
 const {
   setupRecaptcha,
   sendVerificationCode,
@@ -207,12 +205,6 @@ async function completeName() {
 }
 
 function completeAuth() {
-  toast.add({
-    title: 'Welcome!',
-    description: `Signed in as ${authStore.currentUser?.name}`,
-    color: 'success',
-  });
-
   router.push(redirectTo.value);
 }
 

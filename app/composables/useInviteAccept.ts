@@ -61,12 +61,6 @@ export function useInviteAccept(code: Ref<string> | string) {
           description: `You're already in ${invite.value?.ownerName}'s contacts`,
           color: 'info'
         })
-      } else {
-        toast.add({
-          title: 'Invite accepted!',
-          description: `You've been added to ${result.addedToGroups.join(' & ')}`,
-          color: 'success'
-        })
       }
 
       // Redirect to groups page after a brief delay

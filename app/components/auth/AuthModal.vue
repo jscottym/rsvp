@@ -26,11 +26,12 @@ const {
   resetState,
   isRecaptchaReady,
 } = usePhoneAuth();
-const toast = useToast();
 const router = useRouter();
 const recaptchaReady = ref(false);
 const recaptchaInitializing = ref(false);
 const recaptchaFailed = ref(false);
+const recaptchaAutoRetries = ref(0);
+const MAX_AUTO_RETRIES = 2;
 
 const step = ref<'phone' | 'code' | 'name'>('phone');
 const phoneStorage = useLocalStorage('rsvp-games-last-phone', '');
@@ -79,8 +80,19 @@ watch(phoneAuthError, (val) => {
   if (val) error.value = val;
 });
 
-async function initRecaptcha() {
+async function initRecaptcha(isAutoRetry = false) {
   if (recaptchaInitializing.value) return;
+
+  // Limit auto-retries to prevent infinite loop
+  if (isAutoRetry) {
+    recaptchaAutoRetries.value++;
+    if (recaptchaAutoRetries.value > MAX_AUTO_RETRIES) {
+      recaptchaFailed.value = true;
+      error.value = 'Verification failed. Tap Retry to try again.';
+      return;
+    }
+  }
+
   recaptchaInitializing.value = true;
   recaptchaReady.value = false;
   recaptchaFailed.value = false;
@@ -90,18 +102,19 @@ async function initRecaptcha() {
     await setupRecaptcha('recaptcha-container', () => {
       recaptchaReady.value = false;
       recaptchaFailed.value = true;
-      // Auto-retry when reCAPTCHA expires
-      initRecaptcha();
+      // Auto-retry with limit when reCAPTCHA expires
+      initRecaptcha(true);
     });
     recaptchaReady.value = true;
     recaptchaFailed.value = false;
+    recaptchaAutoRetries.value = 0; // Reset on success
   } catch (e: any) {
     console.error('Failed to setup reCAPTCHA:', e);
     recaptchaFailed.value = true;
     const isTimeout = e.message?.includes('timed out');
     error.value = isTimeout
-      ? 'Verification took too long. Tap below to retry.'
-      : 'Failed to initialize verification. Tap below to retry.';
+      ? 'Verification took too long. Tap Retry to try again.'
+      : 'Failed to initialize verification. Tap Retry to try again.';
   } finally {
     recaptchaInitializing.value = false;
   }
@@ -109,12 +122,14 @@ async function initRecaptcha() {
 
 watch(isOpen, async (val) => {
   if (val) {
+    recaptchaAutoRetries.value = 0;
     await initRecaptcha();
   } else {
     // Reset state when closed (but keep phone number)
     resetState();
     recaptchaReady.value = false;
     recaptchaFailed.value = false;
+    recaptchaAutoRetries.value = 0;
     step.value = 'phone';
     codeParts.value = [];
     name.value = '';
@@ -210,11 +225,6 @@ async function completeName() {
 function completeAuth() {
   isOpen.value = false;
   emit('authenticated');
-  toast.add({
-    title: 'Welcome!',
-    description: `Signed in as ${authStore.currentUser?.name}`,
-    color: 'success',
-  });
 
   if (props.redirectTo) {
     router.push(props.redirectTo);
@@ -343,7 +353,7 @@ function completeAuth() {
           size="xl"
           label="Retry Verification"
           :loading="recaptchaInitializing"
-          @click="initRecaptcha"
+          @click="recaptchaAutoRetries = 0; initRecaptcha()"
         />
         <UButton
           v-else-if="step === 'phone'"

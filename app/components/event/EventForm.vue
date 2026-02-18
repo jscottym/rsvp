@@ -227,7 +227,19 @@ const isValid = computed(() => {
   return !!(form.date && form.startTime && form.location.trim());
 });
 
+const attempted = ref(false);
+
+const validationMessage = computed(() => {
+  if (!attempted.value || isValid.value) return null;
+  const missing: string[] = [];
+  if (!form.location.trim()) missing.push('location');
+  if (!form.date) missing.push('date');
+  if (!form.startTime) missing.push('start time');
+  return `Please add a ${missing.join(' and ')} to continue`;
+});
+
 function handleSubmit() {
+  attempted.value = true;
   if (!isValid.value) return;
   emit('submit', { ...form });
 }
@@ -429,6 +441,13 @@ defineExpose({
       ]"
     >
       <div :class="{ 'max-w-lg mx-auto': !inline }">
+        <!-- Validation message (inline mode) -->
+        <p
+          v-if="inline && validationMessage"
+          class="text-center text-sm text-amber-600 dark:text-amber-400 mb-2"
+        >
+          {{ validationMessage }}
+        </p>
         <!-- Inline mode: Cancel and Save buttons side by side -->
         <div v-if="inline" class="flex gap-3">
           <UButton
@@ -443,20 +462,25 @@ defineExpose({
           <UButton
             size="xl"
             :loading="submitting"
-            :disabled="!isValid"
             class="h-14 text-lg font-bold rounded-xl flex-1 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 transition-all duration-200 active:scale-[0.98]"
             @click="handleSubmit"
           >
             {{ submitLabel || 'Save Changes' }}
           </UButton>
         </div>
+        <!-- Validation message (full page mode) -->
+        <p
+          v-if="!inline && validationMessage"
+          class="text-center text-sm text-amber-600 dark:text-amber-400 mb-2"
+        >
+          {{ validationMessage }}
+        </p>
         <!-- Full page mode: Single large submit button -->
         <UButton
-          v-else
+          v-if="!inline"
           size="xl"
           block
           :loading="submitting"
-          :disabled="!isValid"
           class="h-20 flex flex-col items-center justify-center gap-1 text-xl font-bold rounded-2xl shadow-xl shadow-teal-500/30 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 transition-all duration-200 active:scale-[0.98]"
           @click="handleSubmit"
         >

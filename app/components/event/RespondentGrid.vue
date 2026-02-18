@@ -152,8 +152,6 @@ async function saveChanges() {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     })
 
-    toast.add({ title: 'Changes saved!', color: 'success' })
-
     // Update original selections to match current
     const orig = new Map<string, Set<string>>()
     for (const [rsvpId, groupIds] of selections.value) {

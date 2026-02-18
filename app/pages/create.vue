@@ -79,12 +79,6 @@ async function createEvent(formData: EventFormData) {
       timezone: formData.timezone,
     });
 
-    toast.add({
-      title: 'Game On!',
-      description: 'Share the link to get players',
-      color: 'success',
-    });
-
     router.push(`/e/${event.slug}`);
   } catch (error: any) {
     toast.add({

@@ -468,30 +468,6 @@ async function submitRsvp(isAutoSave = false) {
       comment.value || undefined
     );
 
-    if (!isAutoSave) {
-      const messages: Record<
-        RsvpStatus,
-        { title: string; description: string }
-      > = {
-        IN: { title: "You're in!", description: 'See you there!' },
-        OUT: { title: 'Got it', description: "We'll miss you!" },
-        MAYBE: {
-          title: 'Response saved',
-          description: "We'll hope to see you!",
-        },
-        IN_IF: { title: 'Response saved', description: 'Fingers crossed!' },
-        WAITLIST: {
-          title: "You're on the waitlist!",
-          description: 'If someone drops out, you can join.',
-        },
-      };
-
-      toast.add({
-        title: messages[selectedStatus.value].title,
-        description: messages[selectedStatus.value].description,
-        color: 'success',
-      });
-    }
   } catch (error: any) {
     toast.add({
       title: 'Error',
@@ -545,12 +521,6 @@ async function handleDropOut(sendNotification: boolean) {
     );
     selectedStatus.value = targetStatus;
 
-    toast.add({
-      title: 'Response updated',
-      description: "You've been removed from the confirmed list",
-      color: 'success',
-    });
-
     if (smsUrl) {
       window.location.href = smsUrl;
     }
@@ -579,11 +549,6 @@ async function handleClaimSpot() {
   try {
     await eventsStore.submitRsvp(slug.value, 'IN');
     selectedStatus.value = 'IN';
-    toast.add({
-      title: "You're in!",
-      description: 'You claimed the spot!',
-      color: 'success',
-    });
   } catch (error: any) {
     toast.add({
       title: 'Error',
@@ -878,35 +843,7 @@ async function copyLink() {
   }
 }
 
-function formatPhone(phone: string): string {
-  // Prepend +1 if not already prefixed with +
-  return phone.startsWith('+') ? phone : `+1${phone}`;
-}
-
-function buildSmsUrl(phones: string[], body?: string): string {
-  const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
-  const formatted = phones.map(formatPhone);
-  const recipients = formatted.join(',');
-  const encodedBody = body ? encodeURIComponent(body) : '';
-
-  let url: string;
-
-  if (isApple && recipients) {
-    // Apple Messages requires sms://open?addresses= format for multiple recipients
-    url = encodedBody
-      ? `sms://open?addresses=${recipients}&body=${encodedBody}`
-      : `sms://open?addresses=${recipients}`;
-  } else if (!recipients) {
-    url = encodedBody ? `sms:?body=${encodedBody}` : 'sms:';
-  } else {
-    url = encodedBody
-      ? `sms:${recipients}?body=${encodedBody}`
-      : `sms:${recipients}`;
-  }
-
-  console.log('[SMS]', { isApple, rawPhones: phones, formatted, recipients, body, url });
-  return url;
-}
+const { buildSmsUrl } = useSms();
 
 function shareViaSms() {
   const message = generateShareMessage();
@@ -1243,7 +1180,6 @@ async function saveEvent(formData: EventFormData) {
       allowSharing: formData.allowSharing,
     });
 
-    toast.add({ title: 'Event updated!', color: 'success' });
     showEditModal.value = false;
 
     // Refresh event data
@@ -1273,12 +1209,6 @@ async function saveToGroup() {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    toast.add({
-      title: 'Group created!',
-      description: `${rsvpsIn.value.length} contacts saved`,
-      color: 'success',
-    });
-
     showSaveGroupModal.value = false;
     newGroupName.value = '';
   } catch (e: any) {
@@ -1296,7 +1226,6 @@ async function deleteEvent() {
   deleting.value = true;
   try {
     await eventsStore.deleteEvent(slug.value);
-    toast.add({ title: 'Event deleted', color: 'success' });
     router.push('/');
   } catch (e: any) {
     toast.add({
@@ -1405,11 +1334,6 @@ async function saveGroupMembership() {
       selectedRsvpForGroups.value.phone,
       selectedGroupIds.value
     );
-
-    toast.add({
-      title: 'Groups updated!',
-      color: 'success',
-    });
 
     showManageGroupsModal.value = false;
     selectedRsvpForGroups.value = null;

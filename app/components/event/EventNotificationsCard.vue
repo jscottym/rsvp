@@ -12,7 +12,13 @@ interface Reminder {
   scheduleType: ScheduleType;
   hoursBeforeValue?: number;
   scheduledFor: string;
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'PARTIALLY_FAILED' | 'FAILED' | 'CANCELLED';
+  status:
+    | 'PENDING'
+    | 'PROCESSING'
+    | 'COMPLETED'
+    | 'PARTIALLY_FAILED'
+    | 'FAILED'
+    | 'CANCELLED';
   processedAt?: string | null;
   recipients?: Recipient[];
 }
@@ -39,9 +45,17 @@ const expanded = ref(false);
 const selectedType = ref<ScheduleType>('DAY_BEFORE');
 const hoursValue = ref(2);
 
-const scheduleOptions: Array<{ value: ScheduleType; label: string; description: string }> = [
-  { value: 'NONE', label: 'No Reminder', description: 'Don\'t send a reminder' },
-  { value: 'DAY_BEFORE', label: 'Night Before', description: '6 PM day before' },
+const scheduleOptions: Array<{
+  value: ScheduleType;
+  label: string;
+  description: string;
+}> = [
+  { value: 'NONE', label: 'None', description: "Don't send a reminder" },
+  {
+    value: 'DAY_BEFORE',
+    label: 'Night Before',
+    description: '6 PM day before',
+  },
   { value: 'HOURS_BEFORE', label: 'Hours Before', description: 'Choose time' },
 ];
 
@@ -51,9 +65,12 @@ async function fetchReminder() {
   loading.value = true;
   try {
     const token = await authStore.getIdToken();
-    const response = await $fetch<{ reminder: Reminder | null }>(`/api/events/${props.slug}/notifications`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const response = await $fetch<{ reminder: Reminder | null }>(
+      `/api/events/${props.slug}/notifications`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
     reminder.value = response.reminder;
 
     // Sync local state with fetched data
@@ -83,26 +100,16 @@ async function updateReminder(type: ScheduleType, hours?: number) {
       body.hoursBeforeValue = hours;
     }
 
-    const response = await $fetch<{ reminder: Reminder | null }>(`/api/events/${props.slug}/notifications`, {
-      method: 'PUT',
-      body,
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const response = await $fetch<{ reminder: Reminder | null }>(
+      `/api/events/${props.slug}/notifications`,
+      {
+        method: 'PUT',
+        body,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
 
     reminder.value = response.reminder;
-
-    if (type === 'NONE') {
-      toast.add({
-        title: 'Reminder removed',
-        color: 'neutral',
-      });
-    } else {
-      toast.add({
-        title: 'Reminder updated',
-        description: `SMS will be sent ${formatScheduleDescription(type, hours)}`,
-        color: 'success',
-      });
-    }
   } catch (e: any) {
     toast.add({
       title: 'Error',
@@ -182,17 +189,22 @@ const isPastOrProcessed = computed(() => {
 });
 
 const isCompleted = computed(() => {
-  return reminder.value?.status === 'COMPLETED' || reminder.value?.status === 'PARTIALLY_FAILED';
+  return (
+    reminder.value?.status === 'COMPLETED' ||
+    reminder.value?.status === 'PARTIALLY_FAILED'
+  );
 });
 
 const sentCount = computed(() => {
   if (!reminder.value?.recipients) return 0;
-  return reminder.value.recipients.filter(r => r.status === 'SENT' || r.status === 'DELIVERED').length;
+  return reminder.value.recipients.filter(
+    (r) => r.status === 'SENT' || r.status === 'DELIVERED'
+  ).length;
 });
 
 const failedCount = computed(() => {
   if (!reminder.value?.recipients) return 0;
-  return reminder.value.recipients.filter(r => r.status === 'FAILED').length;
+  return reminder.value.recipients.filter((r) => r.status === 'FAILED').length;
 });
 
 onMounted(() => {
@@ -215,7 +227,10 @@ onMounted(() => {
 
     <!-- Loading state -->
     <div v-if="loading" class="flex justify-center py-4">
-      <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-gray-400" />
+      <UIcon
+        name="i-heroicons-arrow-path"
+        class="w-5 h-5 animate-spin text-gray-400"
+      />
     </div>
 
     <!-- Completed state: Show "Reminder Sent" with expandable recipient list -->
@@ -224,17 +239,25 @@ onMounted(() => {
         class="w-full flex items-center gap-3 p-3 rounded-xl bg-teal-50 dark:bg-teal-900/20 transition-colors hover:bg-teal-100 dark:hover:bg-teal-900/30"
         @click="expanded = !expanded"
       >
-        <UIcon name="i-heroicons-check-circle-solid" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+        <UIcon
+          name="i-heroicons-check-circle-solid"
+          class="w-5 h-5 text-teal-500 flex-shrink-0"
+        />
         <div class="flex-1 text-left">
           <span class="font-medium text-teal-700 dark:text-teal-300">
             Reminder Sent
           </span>
           <span class="text-sm text-teal-600 dark:text-teal-400 ml-1">
-            · {{ formatScheduledTime(reminder.processedAt || reminder.scheduledFor) }}
+            ·
+            {{
+              formatScheduledTime(reminder.processedAt || reminder.scheduledFor)
+            }}
           </span>
         </div>
         <UIcon
-          :name="expanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+          :name="
+            expanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'
+          "
           class="w-5 h-5 text-teal-500 flex-shrink-0"
         />
       </button>
@@ -248,31 +271,49 @@ onMounted(() => {
         leave-from-class="opacity-100 max-h-96"
         leave-to-class="opacity-0 max-h-0"
       >
-        <div v-if="expanded && reminder.recipients" class="mt-2 overflow-hidden">
-          <div class="space-y-1 pt-2 border-t border-teal-100 dark:border-teal-800">
+        <div
+          v-if="expanded && reminder.recipients"
+          class="mt-2 overflow-hidden"
+        >
+          <div
+            class="space-y-1 pt-2 border-t border-teal-100 dark:border-teal-800"
+          >
             <div
               v-for="(recipient, idx) in reminder.recipients"
               :key="idx"
               class="flex items-center gap-2 py-1.5 px-1 text-sm"
             >
               <UIcon
-                :name="recipient.status === 'FAILED' ? 'i-heroicons-x-mark' : 'i-heroicons-check'"
+                :name="
+                  recipient.status === 'FAILED'
+                    ? 'i-heroicons-x-mark'
+                    : 'i-heroicons-check'
+                "
                 :class="[
                   'w-4 h-4 flex-shrink-0',
-                  recipient.status === 'FAILED' ? 'text-red-500' : 'text-teal-500'
+                  recipient.status === 'FAILED'
+                    ? 'text-red-500'
+                    : 'text-teal-500',
                 ]"
               />
               <span class="flex-1 text-gray-700 dark:text-gray-300 truncate">
                 {{ recipient.name }}
               </span>
               <span class="text-xs text-gray-400 flex-shrink-0">
-                {{ recipient.status === 'FAILED' ? 'Failed' : formatSentTime(recipient.sentAt) }}
+                {{
+                  recipient.status === 'FAILED'
+                    ? 'Failed'
+                    : formatSentTime(recipient.sentAt)
+                }}
               </span>
             </div>
           </div>
 
           <!-- Summary -->
-          <div v-if="failedCount > 0" class="mt-2 pt-2 border-t border-teal-100 dark:border-teal-800">
+          <div
+            v-if="failedCount > 0"
+            class="mt-2 pt-2 border-t border-teal-100 dark:border-teal-800"
+          >
             <p class="text-xs text-gray-500">
               {{ sentCount }} sent, {{ failedCount }} failed
             </p>
@@ -284,9 +325,11 @@ onMounted(() => {
     <!-- Pending/No reminder state -->
     <template v-else>
       <!-- Organizer: Editable options -->
-      <div v-if="isOrganizer" class="space-y-3">
+      <div v-if="isOrganizer">
         <!-- Schedule type pills -->
-        <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+        <div
+          class="flex gap-2 overflow-x-auto pb-4 overflow-y-visible scrollbar-hide -mx-1 px-1"
+        >
           <button
             v-for="option in scheduleOptions"
             :key="option.value"
@@ -308,10 +351,14 @@ onMounted(() => {
 
         <!-- Hours selector (when HOURS_BEFORE selected) -->
         <div v-if="selectedType === 'HOURS_BEFORE'" class="space-y-2">
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <p
+            class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+          >
             How long before
           </p>
-          <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+          <div
+            class="flex gap-2 overflow-x-auto pb-4 scrollbar-hide -mx-1 px-1"
+          >
             <button
               v-for="hours in hoursOptions"
               :key="hours"
@@ -325,23 +372,32 @@ onMounted(() => {
               :disabled="isPastOrProcessed || saving"
               @click="selectHours(hours)"
             >
-              {{ hours }} {{ hours === 1 ? 'hour' : 'hours' }}
+              {{ hours }} {{ hours === 1 ? 'hr' : 'hrs' }}
             </button>
           </div>
         </div>
 
         <!-- Preview/info when a reminder is set -->
-        <div v-if="reminder && selectedType !== 'NONE'" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 pt-1">
+        <div
+          v-if="reminder && selectedType !== 'NONE'"
+          class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 pt-1"
+        >
           <UIcon name="i-heroicons-clock" class="w-4 h-4" />
           <span>{{ formatScheduledTime(reminder.scheduledFor) }}</span>
           <span class="text-gray-400">·</span>
-          <span>{{ confirmedCount }} {{ confirmedCount === 1 ? 'player' : 'players' }}</span>
+          <span
+            >{{ confirmedCount }}
+            {{ confirmedCount === 1 ? 'player' : 'players' }}</span
+          >
         </div>
       </div>
 
       <!-- Non-organizer: View only -->
       <div v-else class="text-sm">
-        <div v-if="reminder" class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+        <div
+          v-if="reminder"
+          class="flex items-center gap-2 text-gray-600 dark:text-gray-400"
+        >
           <UIcon name="i-heroicons-clock" class="w-4 h-4 text-teal-500" />
           <span>
             Reminder set for {{ formatScheduledTime(reminder.scheduledFor) }}
