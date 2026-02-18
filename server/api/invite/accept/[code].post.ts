@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
     // Get/create owner's My People group
     const myPeopleGroup = await getOrCreateMyPeopleGroup(inviteOwner.id)
     const addedToGroups: string[] = []
+    const addedGroupIds: string[] = []
     let alreadyMember = false
 
     // Check if already a member
@@ -51,13 +52,16 @@ export default defineEventHandler(async (event) => {
         }
       })
       addedToGroups.push(myPeopleGroup.name)
+      addedGroupIds.push(myPeopleGroup.id)
     }
 
     // Notify the owner
     broadcastToUser(inviteOwner.id, {
       type: 'invite_accepted',
       acceptorName,
-      groupNames: addedToGroups
+      acceptorPhone,
+      groupNames: addedToGroups,
+      addedGroupIds
     })
 
     return { success: true, addedToGroups, alreadyMember }
@@ -76,6 +80,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const addedToGroups: string[] = []
+    const addedGroupIds: string[] = []
     let alreadyMember = false
 
     // Add to the target group
@@ -95,6 +100,7 @@ export default defineEventHandler(async (event) => {
         }
       })
       addedToGroups.push(group.name)
+      addedGroupIds.push(group.id)
     }
 
     // Also add to owner's My People group
@@ -113,13 +119,16 @@ export default defineEventHandler(async (event) => {
         }
       })
       addedToGroups.push(myPeopleGroup.name)
+      addedGroupIds.push(myPeopleGroup.id)
     }
 
     // Notify the owner
     broadcastToUser(group.ownerId, {
       type: 'invite_accepted',
       acceptorName,
-      groupNames: addedToGroups
+      acceptorPhone,
+      groupNames: addedToGroups,
+      addedGroupIds
     })
 
     return { success: true, addedToGroups, alreadyMember }

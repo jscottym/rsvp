@@ -55,6 +55,16 @@ export function useFirebase() {
 let recaptchaExpiredCallback: (() => void) | null = null
 let recaptchaContainerId = 0
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val) },
+      (err) => { clearTimeout(timer); reject(err) }
+    )
+  })
+}
+
 export function usePhoneAuth() {
   const { getFirebaseAuth } = useFirebase()
 
@@ -71,9 +81,19 @@ export function usePhoneAuth() {
       globalRecaptchaVerifier = null
     }
 
-    // Also clean up any orphaned reCAPTCHA iframes/widgets that Firebase may have left
+    // Clean up any orphaned reCAPTCHA iframes/widgets that Firebase may have left
     document.querySelectorAll('iframe[src*="recaptcha"]').forEach(el => el.remove())
     document.querySelectorAll('.grecaptcha-badge').forEach(el => el.remove())
+
+    // Reset Google's global reCAPTCHA state to prevent stale widget issues
+    try {
+      const w = window as any
+      if (w.grecaptcha) {
+        w.grecaptcha.reset()
+      }
+    } catch (e) {
+      // Ignore - grecaptcha may not be loaded yet
+    }
   }
 
   const setupRecaptcha = async (containerId: string, onExpired?: () => void) => {
@@ -86,7 +106,7 @@ export function usePhoneAuth() {
     clearRecaptcha()
 
     // Wait for DOM cleanup
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise(resolve => setTimeout(resolve, 150))
 
     const container = document.getElementById(containerId)
     if (!container) {
@@ -112,8 +132,8 @@ export function usePhoneAuth() {
       }
     })
 
-    // Pre-render the reCAPTCHA widget
-    await globalRecaptchaVerifier.render()
+    // Pre-render with timeout - reCAPTCHA can hang after sign-out/sign-in cycles
+    await withTimeout(globalRecaptchaVerifier.render(), 8000, 'reCAPTCHA render')
   }
 
   const isRecaptchaReady = () => {
@@ -133,10 +153,11 @@ export function usePhoneAuth() {
       // Format phone number with country code if not present
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+1${phoneNumber.replace(/\D/g, '')}`
 
-      globalConfirmationResult = await signInWithPhoneNumber(
-        auth,
-        formattedPhone,
-        globalRecaptchaVerifier
+      // Timeout protects against signInWithPhoneNumber hanging on stale reCAPTCHA
+      globalConfirmationResult = await withTimeout(
+        signInWithPhoneNumber(auth, formattedPhone, globalRecaptchaVerifier),
+        15000,
+        'Phone verification'
       )
 
       return true

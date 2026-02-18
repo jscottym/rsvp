@@ -47,7 +47,9 @@ export interface EventUpdatePayload {
 export interface InviteAcceptedPayload {
   type: 'invite_accepted'
   acceptorName: string
+  acceptorPhone: string
   groupNames: string[]
+  addedGroupIds: string[]
 }
 
 export type WebSocketPayload = RsvpUpdatePayload | EventUpdatePayload

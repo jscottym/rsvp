@@ -98,7 +98,10 @@ async function initRecaptcha() {
   } catch (e: any) {
     console.error('Failed to setup reCAPTCHA:', e);
     recaptchaFailed.value = true;
-    error.value = 'Failed to initialize verification. Tap below to retry.';
+    const isTimeout = e.message?.includes('timed out');
+    error.value = isTimeout
+      ? 'Verification took too long. Tap below to retry.'
+      : 'Failed to initialize verification. Tap below to retry.';
   } finally {
     recaptchaInitializing.value = false;
   }
@@ -128,12 +131,11 @@ async function sendCode() {
     return;
   }
 
-  // Always get a fresh reCAPTCHA token before sending to avoid expiration issues
-  if (!recaptchaReady.value || !isRecaptchaReady()) {
-    await initRecaptcha();
-    if (!recaptchaReady.value) {
-      return; // Error already set by initRecaptcha
-    }
+  // Always get a completely fresh reCAPTCHA before every send attempt.
+  // This prevents stale token issues after sign-in/sign-out cycles.
+  await initRecaptcha();
+  if (!recaptchaReady.value) {
+    return; // Error already set by initRecaptcha
   }
 
   const success = await sendVerificationCode(phone.value);
@@ -145,8 +147,9 @@ async function sendCode() {
     await nextTick();
     focusPinInput();
   } else {
-    // Re-initialize reCAPTCHA for retry
-    await initRecaptcha();
+    // reCAPTCHA was cleared by sendVerificationCode on error - mark it
+    recaptchaReady.value = false;
+    recaptchaFailed.value = true;
   }
 }
 

@@ -6,7 +6,7 @@ const showAuthModal = ref(false)
 const route = useRoute()
 
 // Real-time notifications for invite acceptances
-useUserWebSocket()
+const { currentInviteAccept, dismissInviteAccept } = useUserWebSocket()
 
 function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '')
@@ -122,5 +122,14 @@ const userInitials = computed(() => {
     </UMain>
 
     <AuthModal v-model:open="showAuthModal" />
+
+    <AddToGroupsModal
+      v-if="currentInviteAccept"
+      :open="!!currentInviteAccept"
+      :acceptor-name="currentInviteAccept.acceptorName"
+      :acceptor-phone="currentInviteAccept.acceptorPhone"
+      :added-group-ids="currentInviteAccept.addedGroupIds"
+      @update:open="(val) => { if (!val) dismissInviteAccept() }"
+    />
   </div>
 </template>

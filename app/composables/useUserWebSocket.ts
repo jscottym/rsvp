@@ -1,7 +1,9 @@
-interface InviteAcceptedPayload {
+export interface InviteAcceptedPayload {
   type: 'invite_accepted'
   acceptorName: string
+  acceptorPhone: string
   groupNames: string[]
+  addedGroupIds: string[]
 }
 
 interface UserSubscribedPayload {
@@ -15,9 +17,10 @@ interface PongPayload {
 
 type ServerMessage = InviteAcceptedPayload | UserSubscribedPayload | PongPayload
 
+const inviteAcceptQueue = ref<InviteAcceptedPayload[]>([])
+
 export function useUserWebSocket() {
   const authStore = useAuthStore()
-  const toast = useToast()
 
   let ws: WebSocket | null = null
   let pingInterval: ReturnType<typeof setInterval> | null = null
@@ -65,15 +68,7 @@ export function useUserWebSocket() {
           const data = JSON.parse(event.data) as ServerMessage
 
           if (data.type === 'invite_accepted') {
-            const groupList = data.groupNames.length > 0
-              ? data.groupNames.join(' & ')
-              : 'your contacts'
-
-            toast.add({
-              title: `${data.acceptorName} accepted your invite!`,
-              description: `Added to ${groupList}`,
-              color: 'success'
-            })
+            inviteAcceptQueue.value.push(data)
           }
         } catch {
           // Ignore parse errors from event channel messages
@@ -138,5 +133,11 @@ export function useUserWebSocket() {
     disconnect()
   })
 
-  return { connect, disconnect }
+  const currentInviteAccept = computed(() => inviteAcceptQueue.value[0] ?? null)
+
+  function dismissInviteAccept() {
+    inviteAcceptQueue.value.shift()
+  }
+
+  return { connect, disconnect, currentInviteAccept, dismissInviteAccept }
 }
