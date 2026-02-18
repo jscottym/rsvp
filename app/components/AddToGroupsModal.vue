@@ -4,6 +4,7 @@ const props = defineProps<{
   acceptorName: string
   acceptorPhone: string
   addedGroupIds: string[]
+  memberGroupIds: string[]
 }>()
 
 const emit = defineEmits<{
@@ -28,7 +29,7 @@ watch(() => props.open, async (open) => {
     if (groupsStore.groups.length === 0) {
       await groupsStore.fetchMyGroups()
     }
-    selectedGroupIds.value = new Set(props.addedGroupIds)
+    selectedGroupIds.value = new Set(props.memberGroupIds)
   }
 })
 
@@ -36,9 +37,13 @@ function isAutoAdded(groupId: string): boolean {
   return props.addedGroupIds.includes(groupId)
 }
 
+function isAlreadyMember(groupId: string): boolean {
+  return props.memberGroupIds.includes(groupId)
+}
+
 function toggleGroup(groupId: string) {
-  // Don't allow unchecking auto-added groups
-  if (isAutoAdded(groupId)) return
+  // Don't allow unchecking groups the person is already in
+  if (isAlreadyMember(groupId)) return
 
   const next = new Set(selectedGroupIds.value)
   if (next.has(groupId)) {
@@ -50,7 +55,7 @@ function toggleGroup(groupId: string) {
 }
 
 const hasNewSelections = computed(() => {
-  return [...selectedGroupIds.value].some(id => !props.addedGroupIds.includes(id))
+  return [...selectedGroupIds.value].some(id => !props.memberGroupIds.includes(id))
 })
 
 async function save() {
@@ -147,12 +152,18 @@ function skip() {
             </span>
           </div>
 
-          <!-- Auto-added badge -->
+          <!-- Membership badge -->
           <span
             v-if="isAutoAdded(group.id)"
             class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400 flex-shrink-0"
           >
             Auto-added
+          </span>
+          <span
+            v-else-if="isAlreadyMember(group.id)"
+            class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 flex-shrink-0"
+          >
+            Member
           </span>
         </button>
       </div>

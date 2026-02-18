@@ -129,6 +129,7 @@ const userInitials = computed(() => {
       :acceptor-name="currentInviteAccept.acceptorName"
       :acceptor-phone="currentInviteAccept.acceptorPhone"
       :added-group-ids="currentInviteAccept.addedGroupIds"
+      :member-group-ids="currentInviteAccept.memberGroupIds"
       @update:open="(val) => { if (!val) dismissInviteAccept() }"
     />
   </div>

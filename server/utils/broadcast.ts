@@ -50,6 +50,7 @@ export interface InviteAcceptedPayload {
   acceptorPhone: string
   groupNames: string[]
   addedGroupIds: string[]
+  memberGroupIds: string[]
 }
 
 export type WebSocketPayload = RsvpUpdatePayload | EventUpdatePayload

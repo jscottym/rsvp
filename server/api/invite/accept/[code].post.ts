@@ -55,13 +55,21 @@ export default defineEventHandler(async (event) => {
       addedGroupIds.push(myPeopleGroup.id)
     }
 
+    // Query all of the owner's groups this person belongs to
+    const existingMemberships = await prisma.groupMember.findMany({
+      where: { phone: acceptorPhone, group: { ownerId: inviteOwner.id } },
+      select: { groupId: true }
+    })
+    const memberGroupIds = existingMemberships.map(m => m.groupId)
+
     // Notify the owner
     broadcastToUser(inviteOwner.id, {
       type: 'invite_accepted',
       acceptorName,
       acceptorPhone,
       groupNames: addedToGroups,
-      addedGroupIds
+      addedGroupIds,
+      memberGroupIds
     })
 
     return { success: true, addedToGroups, alreadyMember }
@@ -122,13 +130,21 @@ export default defineEventHandler(async (event) => {
       addedGroupIds.push(myPeopleGroup.id)
     }
 
+    // Query all of the owner's groups this person belongs to
+    const existingMemberships = await prisma.groupMember.findMany({
+      where: { phone: acceptorPhone, group: { ownerId: group.ownerId } },
+      select: { groupId: true }
+    })
+    const memberGroupIds = existingMemberships.map(m => m.groupId)
+
     // Notify the owner
     broadcastToUser(group.ownerId, {
       type: 'invite_accepted',
       acceptorName,
       acceptorPhone,
       groupNames: addedToGroups,
-      addedGroupIds
+      addedGroupIds,
+      memberGroupIds
     })
 
     return { success: true, addedToGroups, alreadyMember }
