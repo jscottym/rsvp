@@ -108,3 +108,14 @@ body {
     min-width: 44px;
   }
 }
+
+/* Ensure reCAPTCHA challenge is visible and tappable above modals on mobile.
+   The JS MutationObserver in useFirebase.ts handles the overlay z-index;
+   this CSS is a fallback for the badge and challenge iframes. */
+.grecaptcha-badge {
+  z-index: 2147483647 !important;
+}
+
+/* reCAPTCHA challenge z-index and pointer-events are handled by
+   the MutationObserver in useFirebase.ts, which precisely targets
+   only Google's injected challenge divs (not app/modal containers). */

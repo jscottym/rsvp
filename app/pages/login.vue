@@ -31,7 +31,9 @@ function formatPhoneInput(input: string): string {
 
 // Initialize phone empty for SSR, load from localStorage on client
 const phone = ref('');
-const phoneStorage = useLocalStorage('rsvp-games-last-phone', '');
+const phoneStorage = import.meta.client
+  ? useLocalStorage('rsvp-games-last-phone', '')
+  : ref('');
 const codeParts = ref<any[]>([]);
 const code = computed(() => codeParts.value.join(''));
 const pinInputRef = ref<HTMLElement | null>(null);

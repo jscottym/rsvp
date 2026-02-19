@@ -8,22 +8,14 @@ export default defineNuxtConfig({
 
   ui: {
     theme: {
-      colors: ['primary', 'secondary', 'success', 'info', 'warning', 'error']
-    }
+      colors: ['primary', 'secondary', 'success', 'info', 'warning', 'error'],
+    },
   },
 
   ogImage: {
     defaults: {
-      component: 'Event',
+      component: 'Default',
     },
-  },
-
-  routeRules: {
-    '/': { ssr: false },
-    '/create': { ssr: false },
-    '/groups/**': { ssr: false },
-    '/e/**': { ssr: true },
-    '/invite/**': { ssr: false },
   },
 
   nitro: {
@@ -61,6 +53,20 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'RSVP',
+      link: [
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        {
+          rel: 'icon',
+          type: 'image/png',
+          sizes: '32x32',
+          href: '/favicon-32.png',
+        },
+        {
+          rel: 'apple-touch-icon',
+          sizes: '180x180',
+          href: '/apple-touch-icon.png',
+        },
+      ],
       meta: [
         {
           name: 'description',

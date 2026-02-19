@@ -16,13 +16,13 @@ interface RsvpUpdatePayload {
     rsvpCount: number
     waitlistCount: number
   }
-  activity: {
+  activities: {
     id: string
     type: string
     message: string
     comment: string | null
     createdAt: string
-  }
+  }[]
 }
 
 interface EventUpdatePayload {
@@ -147,7 +147,9 @@ export function useEventWebSocket(eventSlug: Ref<string> | string, options: UseE
             case 'rsvp_update':
               console.log('[WebSocket] RSVP update received:', data)
               options.onRsvpUpdate?.(data)
-              options.onActivity?.(data.activity)
+              for (const activity of data.activities) {
+                options.onActivity?.(activity)
+              }
               break
 
             case 'event_update':

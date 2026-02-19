@@ -14,13 +14,13 @@ export interface RsvpUpdatePayload {
     rsvpCount: number
     waitlistCount: number
   }
-  activity: {
+  activities: {
     id: string
     type: string
     message: string
     comment: string | null
     createdAt: string
-  }
+  }[]
 }
 
 export interface EventUpdatePayload {

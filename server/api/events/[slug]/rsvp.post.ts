@@ -81,62 +81,81 @@ export default defineEventHandler(async (event) => {
 
   const { status, comment } = parsed.data
 
-  // Check capacity if RSVPing IN (skip for WAITLIST - it's for full events)
-  if (status === 'IN') {
-    const existingRsvp = await prisma.rsvp.findUnique({
-      where: {
-        eventId_userId: {
-          eventId: existingEvent.id,
-          userId: auth.user.id
-        }
-      }
-    })
-
-    // Only check capacity if this is a new RSVP or changing to IN from another status
-    if (!existingRsvp || existingRsvp.status !== 'IN') {
-      if (existingEvent._count.rsvps >= existingEvent.maxPlayers) {
-        throw createError({
-          statusCode: 400,
-          message: 'Event is at full capacity'
-        })
+  // Fetch existing RSVP once for capacity check and status-change detection
+  const existingRsvp = await prisma.rsvp.findUnique({
+    where: {
+      eventId_userId: {
+        eventId: existingEvent.id,
+        userId: auth.user.id
       }
     }
+  })
+
+  const statusChanged = !existingRsvp || existingRsvp.status !== status
+
+  // Check capacity if RSVPing IN (skip for WAITLIST - it's for full events)
+  if (status === 'IN' && statusChanged) {
+    if (existingEvent._count.rsvps >= existingEvent.maxPlayers) {
+      throw createError({
+        statusCode: 400,
+        message: 'Event is at full capacity'
+      })
+    }
+  }
+  const userName = auth.user.nickname || auth.user.name
+
+  // Upsert the RSVP, only create activity if status actually changed
+  const rsvp = await prisma.rsvp.upsert({
+    where: {
+      eventId_userId: {
+        eventId: existingEvent.id,
+        userId: auth.user.id
+      }
+    },
+    create: {
+      eventId: existingEvent.id,
+      userId: auth.user.id,
+      status,
+      comment: comment || null
+    },
+    update: {
+      status,
+      comment: comment || null
+    }
+  })
+
+  // Create activity records for status changes and note updates
+  const activities = []
+
+  if (statusChanged) {
+    activities.push(
+      await prisma.eventActivity.create({
+        data: {
+          eventId: existingEvent.id,
+          userId: auth.user.id,
+          type: getActivityType(status),
+          message: getActivityMessage(userName, status)
+        }
+      })
+    )
   }
 
-  // Upsert the RSVP and create activity in a transaction
-  const userName = auth.user.nickname || auth.user.name
-  const activityMessage = getActivityMessage(userName, status)
-  const activityType = getActivityType(status)
-
-  const [rsvp, activity] = await prisma.$transaction([
-    prisma.rsvp.upsert({
-      where: {
-        eventId_userId: {
+  // Create a note activity when comment changes (added or changed, not cleared)
+  const oldComment = existingRsvp?.comment || null
+  const newComment = comment || null
+  if (newComment && newComment !== oldComment) {
+    activities.push(
+      await prisma.eventActivity.create({
+        data: {
           eventId: existingEvent.id,
-          userId: auth.user.id
+          userId: auth.user.id,
+          type: 'NOTE_UPDATED',
+          message: `${userName} added a note`,
+          comment: newComment
         }
-      },
-      create: {
-        eventId: existingEvent.id,
-        userId: auth.user.id,
-        status,
-        comment: comment || null
-      },
-      update: {
-        status,
-        comment: comment || null
-      }
-    }),
-    prisma.eventActivity.create({
-      data: {
-        eventId: existingEvent.id,
-        userId: auth.user.id,
-        type: activityType,
-        message: activityMessage,
-        comment: comment || null
-      }
-    })
-  ])
+      })
+    )
+  }
 
   // Get updated counts
   const [updatedCount, waitlistCount] = await Promise.all([
@@ -169,13 +188,13 @@ export default defineEventHandler(async (event) => {
       rsvpCount: updatedCount,
       waitlistCount
     },
-    activity: {
-      id: activity.id,
-      type: activity.type,
-      message: activity.message,
-      comment: activity.comment,
-      createdAt: activity.createdAt.toISOString()
-    }
+    activities: activities.map(a => ({
+      id: a.id,
+      type: a.type,
+      message: a.message,
+      comment: a.comment,
+      createdAt: a.createdAt.toISOString()
+    }))
   }
 
   broadcastToEvent(slug, payload)

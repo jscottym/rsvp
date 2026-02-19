@@ -97,6 +97,7 @@ enum EventActivityType {
   RSVP_WAITLIST
   RSVP_IN_IF
   EVENT_EDITED
+  NOTE_UPDATED
 }
 
 model EventActivity {

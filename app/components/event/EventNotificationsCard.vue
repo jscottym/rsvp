@@ -408,5 +408,15 @@ onMounted(() => {
         </div>
       </div>
     </template>
+
+    <!-- Coming soon notice -->
+    <UAlert
+      color="warning"
+      variant="soft"
+      title="Not live yet"
+      description="SMS reminders are coming soon."
+      icon="i-heroicons-wrench-screwdriver"
+      class="rounded-xl mt-3"
+    />
   </div>
 </template>

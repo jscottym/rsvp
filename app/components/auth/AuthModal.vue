@@ -34,7 +34,6 @@ const recaptchaAutoRetries = ref(0);
 const MAX_AUTO_RETRIES = 2;
 
 const step = ref<'phone' | 'code' | 'name'>('phone');
-const phoneStorage = useLocalStorage('rsvp-games-last-phone', '');
 
 function formatPhoneInput(input: string): string {
   const digits = input.replace(/\D/g, '');
@@ -45,7 +44,11 @@ function formatPhoneInput(input: string): string {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
 }
 
-const phone = ref(formatPhoneInput(phoneStorage.value || ''));
+// Initialize empty for SSR, load from localStorage on client
+const phoneStorage = import.meta.client
+  ? useLocalStorage('rsvp-games-last-phone', '')
+  : ref('');
+const phone = ref('');
 const codeParts = ref<any[]>([]);
 const code = computed(() => codeParts.value.join(''));
 const pinInputRef = ref<HTMLElement | null>(null);
@@ -122,6 +125,10 @@ async function initRecaptcha(isAutoRetry = false) {
 
 watch(isOpen, async (val) => {
   if (val) {
+    // Load saved phone from localStorage on open
+    if (!phone.value && phoneStorage.value) {
+      phone.value = formatPhoneInput(phoneStorage.value);
+    }
     recaptchaAutoRetries.value = 0;
     await initRecaptcha();
   } else {
@@ -146,11 +153,13 @@ async function sendCode() {
     return;
   }
 
-  // Always get a completely fresh reCAPTCHA before every send attempt.
-  // This prevents stale token issues after sign-in/sign-out cycles.
-  await initRecaptcha();
+  // Only re-initialize if reCAPTCHA isn't ready (e.g., after error or expiry).
+  // Don't destroy an already-solved widget — that forces the user to redo it.
   if (!recaptchaReady.value) {
-    return; // Error already set by initRecaptcha
+    await initRecaptcha();
+    if (!recaptchaReady.value) {
+      return; // Error already set by initRecaptcha
+    }
   }
 
   const success = await sendVerificationCode(phone.value);
@@ -165,6 +174,10 @@ async function sendCode() {
     // reCAPTCHA was cleared by sendVerificationCode on error - mark it
     recaptchaReady.value = false;
     recaptchaFailed.value = true;
+    // Provide helpful hint for VPN users
+    if (!error.value || error.value.includes('timed out')) {
+      error.value = 'Verification failed. If you\'re using a VPN, try disabling it and retry.';
+    }
   }
 }
 

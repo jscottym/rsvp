@@ -4,7 +4,7 @@ export function useSms() {
   }
 
   function buildSmsUrl(phones: string[], body?: string): string {
-    const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)
+    const isApple = typeof navigator !== 'undefined' && /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)
     const formatted = phones.map(formatPhoneForSms)
     const recipients = formatted.join(',')
     const encodedBody = body ? encodeURIComponent(body) : ''

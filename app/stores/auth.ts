@@ -14,16 +14,24 @@ interface AuthState {
   initialized: boolean
 }
 
-// Cache user in localStorage for instant loading
-const cachedUser = useLocalStorage<User | null>('rsvp-games-user', null, {
-  serializer: {
-    read: (v) => v ? JSON.parse(v) : null,
-    write: (v) => JSON.stringify(v)
-  }
-})
-
 // Dev mode token storage
 const devToken = ref<string | null>(null)
+
+// Shared initialization promise to deduplicate concurrent callers
+let initPromise: Promise<void> | null = null
+
+// Cache user in localStorage — only on client to avoid SSR hydration mismatches
+let cachedUser: Ref<User | null>
+if (import.meta.client) {
+  cachedUser = useLocalStorage<User | null>('rsvp-games-user', null, {
+    serializer: {
+      read: (v) => v ? JSON.parse(v) : null,
+      write: (v) => JSON.stringify(v)
+    }
+  })
+} else {
+  cachedUser = ref(null)
+}
 
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
@@ -39,8 +47,25 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async initialize() {
-      if (this.initialized) return
+      // On server: mark initialized and bail — Firebase isn't available
+      if (import.meta.server) {
+        this.initialized = true
+        return
+      }
 
+      // On client: always run Firebase restoration.
+      // The `initialized` flag from SSR just means "server is done",
+      // not "client Firebase session has been restored".
+      if (initPromise) {
+        await initPromise
+        return
+      }
+
+      initPromise = this._doInitialize()
+      await initPromise
+    },
+
+    async _doInitialize() {
       this.loading = true
 
       try {
@@ -48,20 +73,20 @@ export const useAuthStore = defineStore('auth', {
         const config = useRuntimeConfig()
         if (import.meta.dev && config.public.devUserId) {
           const success = await this.devLogin()
-          if (success) {
-            this.loading = false
-            this.initialized = true
-            return
-          }
+          if (success) return
         }
 
-        // Normal Firebase auth
+        // Normal Firebase auth — restores session from IndexedDB
         const { getCurrentUser } = usePhoneAuth()
         const firebaseUser = await getCurrentUser()
 
         if (firebaseUser) {
           const token = await firebaseUser.getIdToken()
           await this.fetchUser(token)
+        } else {
+          // No Firebase session — clear any stale cached user
+          this.user = null
+          cachedUser.value = null
         }
       } catch (error) {
         console.error('Auth initialization error:', error)

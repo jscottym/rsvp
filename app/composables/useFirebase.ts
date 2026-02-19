@@ -40,20 +40,54 @@ export function useFirebase() {
   const getFirebaseAuth = () => {
     if (!auth) {
       auth = getAuth(getFirebaseApp())
-      // Ensure session persists across browser restarts
-      setPersistence(auth, browserLocalPersistence).catch(console.error)
     }
     return auth
   }
 
+  const ensurePersistence = async () => {
+    const a = getFirebaseAuth()
+    await setPersistence(a, browserLocalPersistence)
+    return a
+  }
+
   return {
     getFirebaseApp,
-    getFirebaseAuth
+    getFirebaseAuth,
+    ensurePersistence
   }
 }
 
 let recaptchaExpiredCallback: (() => void) | null = null
 let recaptchaContainerId = 0
+let challengeObserver: MutationObserver | null = null
+
+/**
+ * Watch for Google's reCAPTCHA challenge iframe being injected into <body>.
+ * When it appears, boost its z-index so it sits above Nuxt UI modals on mobile.
+ */
+function startChallengeObserver() {
+  if (import.meta.server || challengeObserver) return
+
+  challengeObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node instanceof HTMLElement && node.querySelector?.('iframe[src*="recaptcha"]')) {
+          // Ensure challenge sits above modal backdrop AND receives pointer events
+          node.style.zIndex = '2147483647'
+          node.style.position = 'relative'
+          node.style.pointerEvents = 'auto'
+        }
+      }
+    }
+  })
+
+  challengeObserver.observe(document.body, { childList: true })
+}
+
+function stopChallengeObserver() {
+  challengeObserver?.disconnect()
+  challengeObserver = null
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -66,12 +100,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 export function usePhoneAuth() {
-  const { getFirebaseAuth } = useFirebase()
+  const { getFirebaseAuth, ensurePersistence } = useFirebase()
 
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   const clearRecaptcha = () => {
+    if (import.meta.server) return
+
     if (globalRecaptchaVerifier) {
       try {
         globalRecaptchaVerifier.clear()
@@ -80,6 +116,8 @@ export function usePhoneAuth() {
       }
       globalRecaptchaVerifier = null
     }
+
+    stopChallengeObserver()
 
     // Clean up any orphaned reCAPTCHA iframes/widgets that Firebase may have left
     document.querySelectorAll('iframe[src*="recaptcha"]').forEach(el => el.remove())
@@ -97,6 +135,8 @@ export function usePhoneAuth() {
   }
 
   const setupRecaptcha = async (containerId: string, onExpired?: () => void) => {
+    if (import.meta.server) return
+
     const auth = getFirebaseAuth()
 
     // Store the expiration callback
@@ -118,6 +158,9 @@ export function usePhoneAuth() {
     const innerContainerId = `recaptcha-inner-${recaptchaContainerId}`
     container.innerHTML = `<div id="${innerContainerId}"></div>`
 
+    // Watch for challenge iframe so we can ensure it's visible above modals
+    startChallengeObserver()
+
     globalRecaptchaVerifier = new RecaptchaVerifier(auth, innerContainerId, {
       size: 'invisible',
       callback: () => {
@@ -133,7 +176,8 @@ export function usePhoneAuth() {
     })
 
     // Pre-render with timeout - reCAPTCHA can hang after sign-out/sign-in cycles
-    await withTimeout(globalRecaptchaVerifier.render(), 8000, 'reCAPTCHA render')
+    // VPNs can slow this down, so give it a generous timeout
+    await withTimeout(globalRecaptchaVerifier.render(), 15000, 'reCAPTCHA render')
   }
 
   const isRecaptchaReady = () => {
@@ -153,10 +197,11 @@ export function usePhoneAuth() {
       // Format phone number with country code if not present
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+1${phoneNumber.replace(/\D/g, '')}`
 
-      // Timeout protects against signInWithPhoneNumber hanging on stale reCAPTCHA
+      // Generous timeout: reCAPTCHA may show a visible image challenge
+      // (especially on VPNs) that the user needs time to solve
       globalConfirmationResult = await withTimeout(
         signInWithPhoneNumber(auth, formattedPhone, globalRecaptchaVerifier),
-        15000,
+        120000,
         'Phone verification'
       )
 
@@ -197,8 +242,9 @@ export function usePhoneAuth() {
     await firebaseSignOut(auth)
   }
 
-  const getCurrentUser = (): Promise<FirebaseUser | null> => {
-    const auth = getFirebaseAuth()
+  const getCurrentUser = async (): Promise<FirebaseUser | null> => {
+    // Ensure local persistence is set before checking auth state
+    const auth = await ensurePersistence()
     return new Promise((resolve) => {
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         unsubscribe()

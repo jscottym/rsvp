@@ -74,10 +74,56 @@ const rsvpDetailsCache = ref<
   Map<string, { name: string; phone: string | null }>
 >(new Map());
 
+// Auth indicator helpers (for event page header)
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+}
+
+const userMenuItems = computed<DropdownMenuItem[][]>(() => [
+  [
+    {
+      label: authStore.currentUser?.name || 'User',
+      icon: 'i-heroicons-user-circle',
+      type: 'label' as const,
+    },
+    {
+      label: formatPhone(authStore.currentUser?.phone || ''),
+      icon: 'i-heroicons-phone',
+      type: 'label' as const,
+      disabled: true,
+    },
+  ],
+  [
+    {
+      label: 'Sign Out',
+      icon: 'i-heroicons-arrow-right-on-rectangle',
+      onSelect: async () => { await authStore.logout(); navigateTo('/'); },
+    },
+  ],
+]);
+
+const userInitials = computed(() => {
+  const name = authStore.currentUser?.name || '';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+});
+
 const {
   data: eventData,
   pending,
   error,
+  refresh,
 } = await useAsyncData(
   `event-${slug.value}`,
   async () => {
@@ -103,6 +149,17 @@ const {
 );
 
 const event = computed(() => eventsStore.currentEvent || eventData.value);
+
+// Refetch event with auth token once user is authenticated on client
+// (SSR fetched without token, so userRsvp won't be present)
+watch(
+  () => authStore.isAuthenticated,
+  async (isAuth) => {
+    if (isAuth && import.meta.client) {
+      await refresh();
+    }
+  }
+);
 
 // Fetch activities on mount
 async function fetchActivities() {
@@ -467,7 +524,6 @@ async function submitRsvp(isAutoSave = false) {
       selectedStatus.value,
       comment.value || undefined
     );
-
   } catch (error: any) {
     toast.add({
       title: 'Error',
@@ -583,7 +639,18 @@ function saveNote() {
   }
   if (comment.value !== (event.value?.userRsvp?.comment || '')) {
     autoSave();
+    toast.add({ title: 'Note saved', color: 'success', duration: 1500 });
   }
+}
+
+function deleteNote() {
+  comment.value = '';
+  isEditingNote.value = false;
+  if (selectedStatus.value === 'IN_IF') {
+    isEditingInIf.value = false;
+  }
+  autoSave();
+  toast.add({ title: 'Note removed', color: 'neutral', duration: 1500 });
 }
 
 function handleNoteKeydown(e: KeyboardEvent) {
@@ -677,15 +744,11 @@ function formatActivityMessage(activity: EventActivity): string {
 }
 
 function getActivityComment(activity: EventActivity): string | null {
-  if (activity.type === 'EVENT_EDITED' && activity.comment) {
-    try {
-      JSON.parse(activity.comment);
-      return null;
-    } catch {
-      return activity.comment;
-    }
+  // Only show comments for note updates
+  if (activity.type === 'NOTE_UPDATED') {
+    return activity.comment;
   }
-  return activity.comment;
+  return null;
 }
 
 const displayedActivities = computed(() => activities.value.slice(0, 10));
@@ -767,6 +830,12 @@ defineOgImage({
     },
   },
 });
+
+// defineOgImage('Nuxt', {
+//   headline: 'Greetings',
+//   title: 'Hello OG Image 👋',
+//   description: 'Look at me using the Nuxt template',
+// });
 
 // Organizer features
 
@@ -1377,23 +1446,57 @@ function closeManageGroupsModal() {
             <UIcon name="i-heroicons-chevron-left" class="w-5 h-5" />
             <span class="text-sm font-medium">Back to Home</span>
           </button>
-          <div v-if="event" class="flex items-center gap-2">
-            <button
-              v-if="event.allowSharing"
-              class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-coral-600 dark:text-coral-400 hover:bg-coral-50 dark:hover:bg-coral-900/20 rounded-lg transition-colors"
-              @click="showShareModal = true"
-            >
-              <UIcon name="i-heroicons-share" class="w-4 h-4" />
-              <span>Share</span>
-            </button>
-            <button
-              v-if="event.isOrganizer"
-              class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              @click="handleEditClick"
-            >
-              <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
-              <span>Edit</span>
-            </button>
+          <div class="flex items-center gap-2">
+            <template v-if="event">
+              <button
+                v-if="event.allowSharing"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-coral-600 dark:text-coral-400 hover:bg-coral-50 dark:hover:bg-coral-900/20 rounded-lg transition-colors"
+                @click="showShareModal = true"
+              >
+                <UIcon name="i-heroicons-share" class="w-4 h-4" />
+                <span>Share</span>
+              </button>
+              <button
+                v-if="event.isOrganizer"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                @click="handleEditClick"
+              >
+                <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
+                <span>Edit</span>
+              </button>
+            </template>
+            <!-- Auth indicator -->
+            <ClientOnly>
+              <UDropdownMenu
+                v-if="authStore.isAuthenticated"
+                :items="userMenuItems"
+                :content="{ align: 'end' }"
+                :ui="{ content: 'min-w-48' }"
+              >
+                <button
+                  class="flex items-center gap-1 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <UAvatar
+                    :text="userInitials"
+                    size="sm"
+                    class="bg-teal-100 text-teal-600 dark:bg-teal-900 dark:text-teal-400"
+                  />
+                </button>
+              </UDropdownMenu>
+              <button
+                v-else
+                class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
+                @click="showAuthModal = true"
+              >
+                <UIcon name="i-heroicons-user-circle" class="w-4 h-4" />
+                <span>Sign In</span>
+              </button>
+              <template #fallback>
+                <div class="flex items-center justify-center w-8 h-8">
+                  <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 text-gray-400 animate-spin" />
+                </div>
+              </template>
+            </ClientOnly>
           </div>
         </div>
 
@@ -1438,75 +1541,69 @@ function closeManageGroupsModal() {
 
             <!-- CARD 1: Event Info -->
             <div
-              class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4"
+              class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm mb-4 overflow-hidden"
             >
-              <!-- Location & Date/Time on one line -->
-              <div class="flex items-center justify-between gap-3 mb-3">
-                <div class="flex items-center gap-2 min-w-0">
-                  <UIcon
-                    name="i-heroicons-map-pin"
-                    class="w-4 h-4 text-gray-400 shrink-0"
-                  />
-                  <span
-                    class="font-semibold text-gray-900 dark:text-white truncate"
-                    >{{ event.location }}</span
-                  >
-                </div>
-                <div class="flex items-center gap-1 text-sm shrink-0">
-                  <span
-                    class="font-medium text-teal-600 dark:text-teal-400"
-                    >{{ formatRelativeDay(event.datetime) }}</span
-                  >
-                  <span class="text-gray-400">·</span>
-                  <span class="text-gray-600 dark:text-gray-400">{{
+              <!-- Teal accent header -->
+              <div class="bg-gradient-to-r from-teal-500 to-teal-600 px-5 py-4">
+                <h2 class="text-2xl font-bold text-white leading-tight truncate">
+                  {{ event.location }}
+                </h2>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="text-teal-100 font-medium">{{
+                    formatRelativeDay(event.datetime)
+                  }}</span>
+                  <span class="text-teal-200/60">·</span>
+                  <span class="text-teal-100">{{
                     formatTime(event.datetime, event.endDatetime)
                   }}</span>
                 </div>
               </div>
 
-              <!-- Description -->
-              <p
-                v-if="event.description"
-                class="text-sm text-gray-600 dark:text-gray-400 mb-3"
-              >
-                {{ event.description }}
-              </p>
-
-              <!-- Progress bar with count on same row -->
-              <div class="flex items-center gap-3">
-                <div
-                  class="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+              <div class="px-5 py-4">
+                <!-- Description -->
+                <p
+                  v-if="event.description"
+                  class="text-sm text-gray-600 dark:text-gray-400 mb-4"
                 >
+                  {{ event.description }}
+                </p>
+
+                <!-- Progress bar with count -->
+                <div class="flex items-center gap-3">
                   <div
-                    class="h-full transition-all duration-300"
-                    :class="isFull ? 'bg-amber-500' : 'bg-teal-500'"
-                    :style="{
-                      width: `${Math.min(100, ((event.rsvpCount ?? 0) / event.maxPlayers) * 100)}%`,
-                    }"
-                  />
-                </div>
-                <div class="shrink-0">
-                  <span
-                    class="text-lg font-bold"
-                    :class="isFull ? 'text-amber-500' : 'text-teal-600'"
-                    >{{ event.rsvpCount ?? 0 }}</span
+                    class="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden"
                   >
-                  <span class="text-gray-400">/{{ event.maxPlayers }}</span>
+                    <div
+                      class="h-full rounded-full transition-all duration-500 ease-out"
+                      :class="isFull ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-teal-400 to-teal-500'"
+                      :style="{
+                        width: `${Math.min(100, ((event.rsvpCount ?? 0) / event.maxPlayers) * 100)}%`,
+                      }"
+                    />
+                  </div>
+                  <div class="shrink-0">
+                    <span
+                      class="text-xl font-bold"
+                      :class="isFull ? 'text-amber-500' : 'text-teal-600 dark:text-teal-400'"
+                      >{{ event.rsvpCount ?? 0 }}</span
+                    >
+                    <span class="text-gray-400 font-medium">/{{ event.maxPlayers }}</span>
+                  </div>
                 </div>
+                <p
+                  v-if="isFull"
+                  class="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium text-center"
+                >
+                  Event is full
+                </p>
               </div>
-              <p
-                v-if="isFull"
-                class="text-xs text-amber-600 dark:text-amber-400 mt-1 text-center"
-              >
-                Event is full
-              </p>
             </div>
 
             <!-- CARD 2: Are you in? -->
             <div
-              class="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm mb-4"
+              class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm mb-4"
             >
-              <h3 class="font-semibold text-gray-900 dark:text-white mb-3">
+              <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">
                 {{ isConfirmed ? 'See you there!' : 'Are you in?' }}
               </h3>
 
@@ -1522,9 +1619,7 @@ function closeManageGroupsModal() {
                     class="h-6 w-6 text-teal-600"
                   />
                   <div class="flex-1">
-                    <p
-                      class="font-semibold text-teal-900 dark:text-teal-100"
-                    >
+                    <p class="font-semibold text-teal-900 dark:text-teal-100">
                       A spot opened up!
                     </p>
                     <p class="text-sm text-teal-700 dark:text-teal-300">
@@ -1565,12 +1660,12 @@ function closeManageGroupsModal() {
                   v-else
                   type="button"
                   :class="[
-                    'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
+                    'flex flex-1 flex-col items-center gap-1.5 rounded-xl px-2 py-3.5 transition-all duration-200 active:scale-95',
                     selectedStatus === 'IN' || isConfirmed
-                      ? 'bg-teal-100 ring-2 ring-teal-500 dark:bg-teal-900/30'
+                      ? 'bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg shadow-teal-500/25 ring-0'
                       : isFull
                         ? selectedStatus === 'WAITLIST'
-                          ? 'bg-violet-100 ring-2 ring-violet-500 dark:bg-violet-900/30'
+                          ? 'bg-gradient-to-br from-violet-400 to-violet-600 shadow-lg shadow-violet-500/25 ring-0'
                           : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800'
                         : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
                   ]"
@@ -1593,22 +1688,22 @@ function closeManageGroupsModal() {
                     :class="[
                       'h-6 w-6',
                       selectedStatus === 'IN' || isConfirmed
-                        ? 'text-teal-500'
+                        ? 'text-white'
                         : isFull
                           ? selectedStatus === 'WAITLIST'
-                            ? 'text-violet-500'
+                            ? 'text-white'
                             : 'text-gray-400'
                           : 'text-gray-400',
                     ]"
                   />
                   <span
                     :class="[
-                      'text-xs font-medium',
+                      'text-xs font-semibold',
                       selectedStatus === 'IN' || isConfirmed
-                        ? 'text-teal-700 dark:text-teal-300'
+                        ? 'text-white'
                         : isFull
                           ? selectedStatus === 'WAITLIST'
-                            ? 'text-violet-700 dark:text-violet-300'
+                            ? 'text-white'
                             : 'text-gray-600 dark:text-gray-400'
                           : 'text-gray-600 dark:text-gray-400',
                     ]"
@@ -1627,9 +1722,9 @@ function closeManageGroupsModal() {
                 <button
                   type="button"
                   :class="[
-                    'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
+                    'flex flex-1 flex-col items-center gap-1.5 rounded-xl px-2 py-3.5 transition-all duration-200 active:scale-95',
                     selectedStatus === 'OUT'
-                      ? 'bg-red-100 ring-2 ring-red-500 dark:bg-red-900/30'
+                      ? 'bg-gradient-to-br from-red-400 to-red-600 shadow-lg shadow-red-500/25'
                       : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
                   ]"
                   @click="selectStatus('OUT')"
@@ -1643,15 +1738,15 @@ function closeManageGroupsModal() {
                     :class="[
                       'h-6 w-6',
                       selectedStatus === 'OUT'
-                        ? 'text-red-500'
+                        ? 'text-white'
                         : 'text-gray-400',
                     ]"
                   />
                   <span
                     :class="[
-                      'text-xs font-medium text-center',
+                      'text-xs font-semibold text-center',
                       selectedStatus === 'OUT'
-                        ? 'text-red-700 dark:text-red-300'
+                        ? 'text-white'
                         : 'text-gray-600 dark:text-gray-400',
                     ]"
                   >
@@ -1663,9 +1758,9 @@ function closeManageGroupsModal() {
                 <button
                   type="button"
                   :class="[
-                    'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
+                    'flex flex-1 flex-col items-center gap-1.5 rounded-xl px-2 py-3.5 transition-all duration-200 active:scale-95',
                     selectedStatus === 'MAYBE'
-                      ? 'bg-amber-100 ring-2 ring-amber-500 dark:bg-amber-900/30'
+                      ? 'bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg shadow-amber-500/25'
                       : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
                   ]"
                   @click="selectStatus('MAYBE')"
@@ -1679,15 +1774,15 @@ function closeManageGroupsModal() {
                     :class="[
                       'h-6 w-6',
                       selectedStatus === 'MAYBE'
-                        ? 'text-amber-500'
+                        ? 'text-white'
                         : 'text-gray-400',
                     ]"
                   />
                   <span
                     :class="[
-                      'text-xs font-medium',
+                      'text-xs font-semibold text-center',
                       selectedStatus === 'MAYBE'
-                        ? 'text-amber-700 dark:text-amber-300'
+                        ? 'text-white'
                         : 'text-gray-600 dark:text-gray-400',
                     ]"
                   >
@@ -1699,9 +1794,9 @@ function closeManageGroupsModal() {
                 <button
                   type="button"
                   :class="[
-                    'flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-3 transition-all',
+                    'flex flex-1 flex-col items-center gap-1.5 rounded-xl px-2 py-3.5 transition-all duration-200 active:scale-95',
                     selectedStatus === 'IN_IF'
-                      ? 'bg-blue-100 ring-2 ring-blue-500 dark:bg-blue-900/30'
+                      ? 'bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg shadow-blue-500/25'
                       : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800',
                   ]"
                   @click="selectStatus('IN_IF')"
@@ -1715,15 +1810,15 @@ function closeManageGroupsModal() {
                     :class="[
                       'h-6 w-6',
                       selectedStatus === 'IN_IF'
-                        ? 'text-blue-500'
+                        ? 'text-white'
                         : 'text-gray-400',
                     ]"
                   />
                   <span
                     :class="[
-                      'text-xs font-medium',
+                      'text-xs font-semibold text-center',
                       selectedStatus === 'IN_IF'
-                        ? 'text-blue-700 dark:text-blue-300'
+                        ? 'text-white'
                         : 'text-gray-600 dark:text-gray-400',
                     ]"
                   >
@@ -1792,7 +1887,7 @@ function closeManageGroupsModal() {
                 </div>
 
                 <!-- Display state (not editing, has note) -->
-                <button
+                <div
                   v-else-if="
                     comment &&
                     !isEditingNote &&
@@ -1801,32 +1896,44 @@ function closeManageGroupsModal() {
                       (isEditingInIf || hasUnsavedInIfComment())
                     )
                   "
-                  type="button"
-                  class="group flex w-full items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
-                  @click="
-                    if (selectedStatus === 'IN_IF') {
-                      isEditingInIf = true;
-                      nextTick(() => {
-                        noteInputRef?.focus();
-                      });
-                    } else {
-                      startEditingNote();
-                    }
-                  "
+                  class="flex items-center gap-1"
                 >
-                  <UIcon
-                    name="i-heroicons-chat-bubble-bottom-center-text"
-                    class="h-4 w-4 flex-shrink-0 text-gray-400"
-                  />
-                  <span
-                    class="flex-1 truncate text-sm text-gray-600 italic dark:text-gray-400"
-                    >"{{ comment }}"</span
+                  <button
+                    type="button"
+                    class="group flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
+                    @click="
+                      if (selectedStatus === 'IN_IF') {
+                        isEditingInIf = true;
+                        nextTick(() => {
+                          noteInputRef?.focus();
+                        });
+                      } else {
+                        startEditingNote();
+                      }
+                    "
                   >
-                  <UIcon
-                    name="i-heroicons-pencil"
-                    class="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
-                  />
-                </button>
+                    <UIcon
+                      name="i-heroicons-chat-bubble-bottom-center-text"
+                      class="h-4 w-4 shrink-0 text-gray-400"
+                    />
+                    <span
+                      class="flex-1 truncate text-sm text-gray-600 italic dark:text-gray-400"
+                      >"{{ comment }}"</span
+                    >
+                    <UIcon
+                      name="i-heroicons-pencil"
+                      class="h-4 w-4 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                    title="Remove note"
+                    @click="deleteNote"
+                  >
+                    <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
+                  </button>
+                </div>
 
                 <!-- Add note button (no note yet) -->
                 <button
@@ -2069,14 +2176,20 @@ function closeManageGroupsModal() {
                           class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-linear-to-br from-teal-400 to-teal-600 text-white font-medium text-sm shadow-md active:scale-95 transition-all duration-200"
                           @click="sendMessage"
                         >
-                          <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4" />
+                          <UIcon
+                            name="i-heroicons-paper-airplane"
+                            class="w-4 h-4"
+                          />
                           Send via SMS
                         </a>
                         <div
                           v-else
                           class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-medium text-sm cursor-not-allowed"
                         >
-                          <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4" />
+                          <UIcon
+                            name="i-heroicons-paper-airplane"
+                            class="w-4 h-4"
+                          />
                           Send via SMS
                         </div>
                       </div>
@@ -2084,6 +2197,17 @@ function closeManageGroupsModal() {
                   </UPopover>
                 </UFieldGroup>
               </div>
+            </div>
+
+            <!-- SMS Reminder (visible to all authenticated users) -->
+            <div v-if="authStore.user" class="mt-4">
+              <EventNotificationsCard
+                :slug="slug"
+                :event-datetime="event.datetime"
+                :event-timezone="event.timezone"
+                :is-organizer="event.isOrganizer"
+                :confirmed-count="rsvpsIn.length"
+              />
             </div>
 
             <!-- Activity Log Section -->
@@ -2113,7 +2237,7 @@ function closeManageGroupsModal() {
                   <div class="flex items-center gap-2">
                     <span
                       :class="[
-                        'h-1.5 w-1.5 flex-shrink-0 rounded-full',
+                        'h-1.5 w-1.5 shrink-0 rounded-full',
                         activity.type === 'RSVP_IN' ? 'bg-teal-500' : '',
                         activity.type === 'RSVP_OUT' ? 'bg-red-500' : '',
                         activity.type === 'RSVP_MAYBE' ? 'bg-amber-500' : '',
@@ -2122,12 +2246,13 @@ function closeManageGroupsModal() {
                           : '',
                         activity.type === 'RSVP_IN_IF' ? 'bg-blue-500' : '',
                         activity.type === 'EVENT_EDITED' ? 'bg-gray-500' : '',
+                        activity.type === 'NOTE_UPDATED' ? 'bg-slate-400' : '',
                       ]"
                     />
                     <span class="text-gray-700 dark:text-gray-300">{{
                       formatActivityMessage(activity)
                     }}</span>
-                    <span class="ml-auto flex-shrink-0 text-xs text-gray-400">{{
+                    <span class="ml-auto shrink-0 text-xs text-gray-400">{{
                       formatTimeAgo(activity.createdAt)
                     }}</span>
                   </div>
@@ -2139,17 +2264,6 @@ function closeManageGroupsModal() {
                   </p>
                 </li>
               </TransitionGroup>
-            </div>
-
-            <!-- SMS Reminder (visible to all authenticated users) -->
-            <div v-if="authStore.user" class="mt-4">
-              <EventNotificationsCard
-                :slug="slug"
-                :event-datetime="event.datetime"
-                :event-timezone="event.timezone"
-                :is-organizer="event.isOrganizer"
-                :confirmed-count="rsvpsIn.length"
-              />
             </div>
           </template>
 

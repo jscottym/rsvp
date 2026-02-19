@@ -11,8 +11,10 @@ const submitting = ref(false);
 const eventFormRef = ref<InstanceType<typeof EventForm> | null>(null);
 const pendingFormData = ref<EventFormData | null>(null);
 
-// Persist location in localStorage
-const savedLocation = useLocalStorage('rsvp-games-last-location', '');
+// Persist location in localStorage (SSR-safe)
+const savedLocation = import.meta.client
+  ? useLocalStorage('rsvp-games-last-location', '')
+  : ref('');
 
 // Initial form data with saved location
 const initialFormData = computed(() => ({

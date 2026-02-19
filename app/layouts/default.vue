@@ -65,76 +65,83 @@ const userInitials = computed(() => {
       </template>
 
       <template #right>
-        <template v-if="authStore.isAuthenticated">
-          <!-- Navigation tabs -->
-          <div class="flex items-center gap-0.5 mr-0.5">
-            <NuxtLink
-              to="/create"
-              class="flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              :class="
-                route.path === '/create'
-                  ? ' text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30'
-                  : ' text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-              "
-            >
-              <UIcon name="i-heroicons-plus-circle" class="size-5" />
-              <span>Create</span>
-            </NuxtLink>
+        <ClientOnly>
+          <template v-if="authStore.isAuthenticated">
+            <!-- Navigation tabs -->
+            <div class="flex items-center gap-0.5 mr-0.5">
+              <NuxtLink
+                to="/create"
+                class="flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                :class="
+                  route.path === '/create'
+                    ? ' text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30'
+                    : ' text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                "
+              >
+                <UIcon name="i-heroicons-plus-circle" class="size-5" />
+                <span>Create</span>
+              </NuxtLink>
 
-            <NuxtLink
-              to="/"
-              class="flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              :class="
-                route.path === '/'
-                  ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-              "
+              <NuxtLink
+                to="/"
+                class="flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                :class="
+                  route.path === '/'
+                    ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                "
+              >
+                <UIcon name="i-heroicons-calendar-days" class="size-4.5" />
+                <span>Events</span>
+              </NuxtLink>
+              <NuxtLink
+                to="/groups"
+                class="flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                :class="
+                  route.path.startsWith('/groups')
+                    ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                "
+              >
+                <UIcon name="i-heroicons-user-group" class="size-4.5" />
+                <span>Groups</span>
+              </NuxtLink>
+            </div>
+            <!-- User dropdown -->
+            <UDropdownMenu
+              :items="userMenuItems"
+              :content="{ align: 'end' }"
+              :ui="{ content: 'min-w-48' }"
             >
-              <UIcon name="i-heroicons-calendar-days" class="size-4.5" />
-              <span>Events</span>
-            </NuxtLink>
-            <NuxtLink
-              to="/groups"
-              class="flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              :class="
-                route.path.startsWith('/groups')
-                  ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-              "
-            >
-              <UIcon name="i-heroicons-user-group" class="size-4.5" />
-              <span>Groups</span>
-            </NuxtLink>
-          </div>
-          <!-- User dropdown -->
-          <UDropdownMenu
-            :items="userMenuItems"
-            :content="{ align: 'end' }"
-            :ui="{ content: 'min-w-48' }"
-          >
-            <button
-              class="flex items-center gap-1 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              <UAvatar
-                :text="userInitials"
-                size="sm"
-                class="bg-teal-100 text-teal-600 dark:bg-teal-900 dark:text-teal-400"
-              />
-              <UIcon
-                name="i-heroicons-chevron-down"
-                class="w-3 h-3 text-gray-400"
-              />
-            </button>
-          </UDropdownMenu>
-        </template>
-        <template v-else>
-          <UButton
-            color="primary"
-            variant="soft"
-            label="Sign In"
-            @click="showAuthModal = true"
-          />
-        </template>
+              <button
+                class="flex items-center gap-1 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <UAvatar
+                  :text="userInitials"
+                  size="sm"
+                  class="bg-teal-100 text-teal-600 dark:bg-teal-900 dark:text-teal-400"
+                />
+                <UIcon
+                  name="i-heroicons-chevron-down"
+                  class="w-3 h-3 text-gray-400"
+                />
+              </button>
+            </UDropdownMenu>
+          </template>
+          <template v-else>
+            <UButton
+              color="primary"
+              variant="soft"
+              label="Sign In"
+              @click="showAuthModal = true"
+            />
+          </template>
+          <template #fallback>
+            <div class="flex items-center justify-center w-8 h-8">
+              <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 text-gray-400 animate-spin" />
+            </div>
+          </template>
+        </ClientOnly>
       </template>
     </UHeader>
 

@@ -102,19 +102,21 @@ useSeoMeta({
   description:
     'Create events people can RSVP to, or RSVP to events others created.',
 });
+
+defineOgImageComponent('Default');
 </script>
 
 <template>
   <!-- Landing page for unauthenticated users -->
   <div
     v-if="!authStore.isAuthenticated"
-    class="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-6 py-16"
+    class="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-6 py-32"
   >
     <div class="max-w-md mx-auto flex flex-col items-center gap-8">
       <h1
         class="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white text-center"
       >
-        Organize pickup games in seconds
+        Organize Pickup Games In Seconds
       </h1>
 
       <div class="flex flex-col gap-6 w-full">

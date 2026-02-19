@@ -105,8 +105,10 @@ const startTimeSlots = computed(() => {
   return slots;
 });
 
-// Auto-detect browser timezone
-const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+// Auto-detect browser timezone (server defaults to UTC, client overrides in onMounted)
+const detectedTimezone = import.meta.client
+  ? Intl.DateTimeFormat().resolvedOptions().timeZone
+  : 'America/Denver';
 
 // Form with smart defaults for pickleball
 const form = reactive<EventFormData>({

@@ -6,53 +6,59 @@ defineProps<{
   shortDate: string;
   time: string;
 }>();
+
+// Inline styles as JS objects so Prettier doesn't break gradient values
+// (satori's css-gradient-parser crashes on multiline gradient strings)
+const rootStyle = {
+  background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%)',
+  padding: '0 80px',
+};
+const circleTopStyle = {
+  top: '-128px',
+  right: '-128px',
+  width: '384px',
+  height: '384px',
+  background: 'rgba(255, 255, 255, 0.15)',
+};
+const circleBotStyle = {
+  bottom: '-96px',
+  left: '-96px',
+  width: '288px',
+  height: '288px',
+  background: 'rgba(255, 255, 255, 0.1)',
+};
 </script>
 
 <template>
   <div
     class="w-full h-full flex flex-col justify-center relative overflow-hidden"
-    style="background: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%)"
+    :style="rootStyle"
   >
     <!-- Decorative circles -->
-    <div
-      class="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-20"
-      style="background: radial-gradient(circle, white 0%, transparent 70%)"
-    />
-    <div
-      class="absolute -bottom-24 -left-24 w-72 h-72 rounded-full opacity-15"
-      style="background: radial-gradient(circle, white 0%, transparent 70%)"
-    />
+    <div class="absolute rounded-full" :style="circleTopStyle" />
+    <div class="absolute rounded-full" :style="circleBotStyle" />
 
     <!-- Content -->
-    <div class="relative z-10 px-20">
-      <!-- Line 1: Location + Player Count -->
-      <div class="flex items-baseline justify-between mb-4">
-        <h1
-          class="font-black text-white leading-none tracking-tight"
-          style="font-size: 160px; text-shadow: 0 6px 32px rgba(0,0,0,0.2)"
-        >
-          {{ location }}
-        </h1>
-        <span
-          class="font-bold text-white/90"
-          style="font-size: 120px; text-shadow: 0 4px 24px rgba(0,0,0,0.15)"
-        >
-          {{ maxPlayers }}
-        </span>
+    <div class="relative" style="z-index: 10">
+      <!-- Location + Player Count -->
+      <div
+        class="font-black text-white leading-none tracking-tight"
+        style="font-size: 8rem"
+      >
+        {{ location }}
+      </div>
+      <div class="font-bold text-white" style="font-size: 3rem">
+        {{ maxPlayers }} players
       </div>
 
-      <!-- Line 2: Date & Time (no bullet separator) -->
-      <p class="text-white/90 font-semibold mb-8" style="font-size: 64px">
-        {{ relativeDay }} {{ shortDate }} {{ time }}
-      </p>
-
-      <!-- Line 3: Are You In? -->
-      <p
-        class="font-bold text-white"
-        style="font-size: 80px; text-shadow: 0 4px 24px rgba(0,0,0,0.15)"
+      <!-- Date & Time -->
+      <div
+        class="text-white font-semibold flex flex-row gap-2 justify-between w-full mt-12"
+        style="font-size: 4rem; margin-bottom: 32px"
       >
-        Are You In?
-      </p>
+        <div>{{ relativeDay }} {{ shortDate }}</div>
+        <div>{{ time }}</div>
+      </div>
     </div>
   </div>
 </template>

@@ -346,7 +346,7 @@ export const useEventsStore = defineStore('events', {
           day: 'numeric',
         });
 
-        const baseUrl = window.location.origin;
+        const baseUrl = import.meta.client ? window.location.origin : useRequestURL().origin;
         const eventUrl = `${baseUrl}/e/${response.event.slug}`;
         const message = `A spot just opened up for ${response.event.title} on ${dayStr}!\n\nClaim it here: ${eventUrl}`;
 
@@ -401,7 +401,7 @@ export const useEventsStore = defineStore('events', {
         });
         const eventInfo = `${dayStr} ${timeStr} at ${response.event.location}`;
 
-        const baseUrl = window.location.origin;
+        const baseUrl = import.meta.client ? window.location.origin : useRequestURL().origin;
         const eventUrl = `${baseUrl}/e/${response.event.slug}`;
 
         let message: string;
