@@ -113,7 +113,7 @@ body {
    The JS MutationObserver in useFirebase.ts handles the overlay z-index;
    this CSS is a fallback for the badge and challenge iframes. */
 .grecaptcha-badge {
-  z-index: 2147483647 !important;
+  visibility: hidden !important;
 }
 
 /* reCAPTCHA challenge z-index and pointer-events are handled by
